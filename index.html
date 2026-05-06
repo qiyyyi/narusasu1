@@ -449,6 +449,9 @@
         .overlay.hidden {
             display: none;
         }
+        .hidden {
+            display: none !important;
+        }
         .menu-panel {
             width: min(92vw, 620px);
             padding: 34px 36px;
@@ -694,6 +697,26 @@
             border: 1px solid rgba(255,215,0,0.35);
             border-radius: 12px;
         }
+        .leaderboard-row.current-player {
+            color: #3d2914;
+            background: linear-gradient(135deg, #fff8c7 0%, #ffd700 38%, #ffb300 72%, #ff8c00 100%);
+            border-color: #fff7ad;
+            border-width: 2px;
+            box-shadow:
+                0 0 24px rgba(255, 215, 0, 0.95),
+                0 0 10px rgba(255, 179, 0, 0.75),
+                inset 0 0 14px rgba(255,255,255,0.45);
+        }
+        .leaderboard-row.current-player .leaderboard-rank,
+        .leaderboard-row.current-player .leaderboard-score {
+            color: #7c2d12;
+        }
+        .leaderboard-divider {
+            padding: 2px 0;
+            color: rgba(255,255,255,0.72);
+            font-size: 13px;
+            text-align: center;
+        }
         .leaderboard-rank {
             color: #ffd700;
             font-weight: 900;
@@ -702,6 +725,23 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .leaderboard-name-main,
+        .leaderboard-name-id {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leaderboard-name-id {
+            margin-top: 2px;
+            color: rgba(255,255,255,0.68);
+            font-size: 11px;
+            font-family: Consolas, monospace;
+            letter-spacing: 0.04em;
+        }
+        .leaderboard-row.current-player .leaderboard-name-id {
+            color: rgba(124, 45, 18, 0.78);
         }
         .leaderboard-score {
             color: #fff3b0;
@@ -2166,36 +2206,78 @@ function setLeaderboardStatus(text) {
     leaderboardStatus.textContent = text;
 }
 
+function getCurrentLeaderboardPlayerName() {
+    return getLockedPlayerName();
+}
+
+function getLockedPlayerName() {
+    const savedFullName = (localStorage.getItem('narusasuLockedPlayerName') || '').trim();
+    if (savedFullName) return savedFullName;
+    const legacyName = (localStorage.getItem('narusasuPlayerName') || '').trim().slice(0, 12);
+    if (!legacyName) return '';
+    const lockedName = makeDevicePlayerName(legacyName);
+    localStorage.setItem('narusasuLockedPlayerName', lockedName);
+    return lockedName;
+}
+
+function lockPlayerName(baseName) {
+    const existingLockedName = getLockedPlayerName();
+    if (existingLockedName) return existingLockedName;
+    const cleanName = String(baseName || '').trim().slice(0, 12);
+    if (!cleanName) return '';
+    const lockedName = makeDevicePlayerName(cleanName);
+    localStorage.setItem('narusasuPlayerName', cleanName);
+    localStorage.setItem('narusasuLockedPlayerName', lockedName);
+    return lockedName;
+}
+
+function isCurrentLeaderboardPlayer(row) {
+    const currentDeviceId = getDeviceId();
+    return Boolean(currentDeviceId && getPlayerDeviceId(row?.player_name) === currentDeviceId);
+}
+
 function renderLeaderboardRows(rows = []) {
     if (!rows.length) {
         leaderboardList.innerHTML = '<div class="leaderboard-row"><span class="leaderboard-rank">--</span><span class="leaderboard-name">暂无成绩</span><span class="leaderboard-score">0</span></div>';
         return;
     }
-    leaderboardList.innerHTML = rows.map((row, index) => `
-        <div class="leaderboard-row">
-            <span class="leaderboard-rank">#${index + 1}</span>
-            <span class="leaderboard-name">${escapeHtml(getDisplayPlayerName(row.player_name || '匿名忍者'))} · ${escapeHtml(row.difficulty_name || '')}</span>
-            <span class="leaderboard-score">${Number(row.score) || 0}</span>
-        </div>
-    `).join('');
+    leaderboardList.innerHTML = rows.map(row => {
+        if (row.type === 'divider') {
+            return '<div class="leaderboard-divider">··· 我的排名 ···</div>';
+        }
+        const isCurrentPlayer = row.isCurrentPlayer || isCurrentLeaderboardPlayer(row);
+        const playerId = getPlayerDeviceId(row.player_name || '') || 'unknown';
+        const displayName = `${escapeHtml(getDisplayPlayerName(row.player_name || '匿名忍者'))}${isCurrentPlayer ? '（我）' : ''} · ${escapeHtml(row.difficulty_name || '')}`;
+        return `
+            <div class="leaderboard-row${isCurrentPlayer ? ' current-player' : ''}">
+                <span class="leaderboard-rank">#${row.rank}</span>
+                <span class="leaderboard-name"><span class="leaderboard-name-main">${displayName}</span><span class="leaderboard-name-id">ID：${escapeHtml(playerId)}</span></span>
+                <span class="leaderboard-score">${Number(row.score) || 0}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 function getDisplayPlayerName(value) {
-    return String(value).split('\u200B')[0] || '匿名忍者';
+    return String(value).split('#')[0] || '匿名忍者';
+}
+
+function getPlayerDeviceId(value) {
+    return String(value).split('#')[1] || '';
 }
 
 function getDeviceId() {
     const deviceIdKey = 'narusasuDeviceId';
     let deviceId = localStorage.getItem(deviceIdKey);
     if (!deviceId) {
-        deviceId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        deviceId = `${Math.random().toString(36).slice(2, 6)}${Date.now().toString(36).slice(-4)}`.toUpperCase();
         localStorage.setItem(deviceIdKey, deviceId);
     }
     return deviceId;
 }
 
 function makeDevicePlayerName(baseName) {
-    return `${baseName}\u200B${getDeviceId()}`;
+    return `${baseName}#${getDeviceId()}`;
 }
 
 function isDuplicateNameError(error) {
@@ -2220,29 +2302,51 @@ async function loadLeaderboard() {
         return;
     }
     setLeaderboardStatus('排行榜加载中...');
+    const currentDeviceId = getDeviceId();
     const { data, error } = await client
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score, difficulty_name, created_at')
         .order('score', { ascending: false })
         .order('created_at', { ascending: true })
-        .limit(LEADERBOARD_LIMIT);
+        .limit(1000);
     if (error) {
         setLeaderboardStatus(`排行榜加载失败：${error.message}`);
         renderLeaderboardRows([]);
         return;
     }
-    setLeaderboardStatus('全网 Top 10');
-    renderLeaderboardRows(data || []);
+
+    const rankedRows = (data || []).map((row, index) => ({
+        ...row,
+        rank: index + 1,
+        isCurrentPlayer: Boolean(currentDeviceId && getPlayerDeviceId(row.player_name) === currentDeviceId)
+    }));
+    const topRows = rankedRows.slice(0, LEADERBOARD_LIMIT);
+    const currentPlayerRow = rankedRows.find(row => row.isCurrentPlayer);
+    const displayRows = [...topRows];
+
+    if (currentPlayerRow && currentPlayerRow.rank > LEADERBOARD_LIMIT) {
+        displayRows.push({ type: 'divider' }, currentPlayerRow);
+    }
+
+    const statusSuffix = currentPlayerRow ? `，你当前第 ${currentPlayerRow.rank} 名` : '，提交成绩后会高亮显示你的排名';
+    setLeaderboardStatus(`全网 Top 10${statusSuffix}`);
+    renderLeaderboardRows(displayRows);
 }
 
 function openLeaderboard(showSubmit = false) {
     leaderboardOverlay.classList.remove('hidden');
-    leaderboardSubmitArea.classList.toggle('hidden', !showSubmit || !pendingScore || scoreSubmitted);
+    const lockedName = getLockedPlayerName();
+    const shouldShowNameInput = showSubmit && pendingScore && !scoreSubmitted && !lockedName;
+    leaderboardSubmitArea.classList.toggle('hidden', !shouldShowNameInput);
     if (showSubmit && pendingScore && !scoreSubmitted) {
-        const savedName = localStorage.getItem('narusasuPlayerName') || '';
-        playerNameInput.value = savedName;
-        setLeaderboardStatus(`本局得分 ${pendingScore.score}，输入昵称后提交成绩。`);
-        playerNameInput.focus();
+        if (lockedName) {
+            setLeaderboardStatus(`本局得分 ${pendingScore.score}，已锁定名称：${lockedName}，正在自动提交成绩。`);
+            submitScore();
+        } else {
+            playerNameInput.value = '';
+            setLeaderboardStatus(`本局得分 ${pendingScore.score}，第一次提交需要输入名称，确认后此设备将永久锁定名称和 ID。`);
+            playerNameInput.focus();
+        }
     }
     loadLeaderboard();
 }
@@ -2257,14 +2361,23 @@ async function submitScore() {
         setLeaderboardStatus('请先在代码中填写 Supabase URL 和 anon key，才能提交全网成绩。');
         return;
     }
-    if (!pendingScore || scoreSubmitted) return;
-    const playerName = playerNameInput.value.trim().slice(0, 12) || '匿名忍者';
-    localStorage.setItem('narusasuPlayerName', playerName);
+    if (!pendingScore || scoreSubmitted || submitScoreButton.disabled) return;
+    let lockedPlayerName = getLockedPlayerName();
+    if (!lockedPlayerName) {
+        const inputName = playerNameInput.value.trim().slice(0, 12);
+        lockedPlayerName = lockPlayerName(inputName);
+    }
+    if (!lockedPlayerName) {
+        setLeaderboardStatus('请输入名称，确认后此设备会永久锁定这个名称和 ID。');
+        playerNameInput.focus();
+        return;
+    }
+    leaderboardSubmitArea.classList.add('hidden');
     submitScoreButton.disabled = true;
-    setLeaderboardStatus('成绩提交中...');
+    setLeaderboardStatus(`成绩提交中... 已锁定为 ${lockedPlayerName}`);
 
     const scorePayload = {
-        player_name: makeDevicePlayerName(playerName),
+        player_name: lockedPlayerName,
         score: pendingScore.score,
         difficulty_key: pendingScore.difficulty_key,
         difficulty_name: pendingScore.difficulty_name,
@@ -2272,7 +2385,6 @@ async function submitScore() {
     };
 
     let error = null;
-    let usedFallbackName = false;
     const { data: existingRows, error: findError } = await client
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score')
@@ -2297,29 +2409,6 @@ async function submitScore() {
         error = insertResult.error;
     }
 
-    if (error && isDuplicateNameError(error)) {
-        const displayName = getDisplayPlayerName(scorePayload.player_name);
-        const { data: duplicatedRows, error: duplicatedFindError } = await client
-            .from(SUPABASE_SCORE_TABLE)
-            .select('player_name, score')
-            .limit(100);
-        const sameDisplayNameRows = duplicatedFindError ? [] : (duplicatedRows || []).filter(row => getDisplayPlayerName(row.player_name) === displayName);
-        const bestExistingScore = sameDisplayNameRows.reduce((best, row) => Math.max(best, Number(row.score) || 0), 0);
-        if (sameDisplayNameRows.length > 0 && scorePayload.score > bestExistingScore) {
-            const updateResult = await client
-                .from(SUPABASE_SCORE_TABLE)
-                .update({
-                    score: scorePayload.score,
-                    difficulty_key: scorePayload.difficulty_key,
-                    difficulty_name: scorePayload.difficulty_name,
-                    created_at: scorePayload.created_at
-                })
-                .eq('player_name', sameDisplayNameRows[0].player_name);
-            error = updateResult.error;
-            usedFallbackName = !error;
-        }
-    }
-
     submitScoreButton.disabled = false;
     if (error) {
         setLeaderboardStatus(`提交失败：${error.message}`);
@@ -2327,7 +2416,7 @@ async function submitScore() {
     }
     scoreSubmitted = true;
     leaderboardSubmitArea.classList.add('hidden');
-    setLeaderboardStatus(usedFallbackName ? '提交成功！名字重复时已自动兼容处理，排行榜会正常显示你的昵称。' : '提交成功！同名玩家会自动保留更高成绩。');
+    setLeaderboardStatus(`提交成功！此设备名称已永久锁定为 ${lockedPlayerName}。`);
     loadLeaderboard();
 }
 
