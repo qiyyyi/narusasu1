@@ -222,11 +222,12 @@
             top: -60px;
             width: 55px;
             height: 55px;
+            z-index: 20;
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             animation: sparkle 1.5s infinite ease-in-out;
-            will-change: transform;
+            will-change: top;
         }
         /* 番茄 */
         .item.tomato {
@@ -497,9 +498,10 @@
         .home-panel h1,
         .home-panel p,
         .home-panel .home-items,
-        .home-panel .menu-button {
+        .home-panel .menu-button,
+        .home-panel .leaderboard-actions {
             position: relative;
-            z-index: 2;
+            z-index: 3;
         }
         .home-hero.naruto {
             left: 0;
@@ -983,6 +985,7 @@
             .home-panel {
                 min-height: min(74dvh, 520px);
                 padding: 22px 24px 26px;
+                overflow-y: auto;
             }
             .home-title-main {
                 font-size: 28px;
@@ -1923,7 +1926,6 @@ function createItem() {
     item.dataset.type = itemType;
     item.style.left = `${Math.random() * (window.innerWidth - size)}px`;
     item.style.top = `-${size}px`;
-    item.style.transform = 'translate3d(0, 0, 0)';
     gameArea.appendChild(item);
     
     let y = -size;
@@ -1932,7 +1934,7 @@ function createItem() {
     function fall() {
         if (isGameOver) { item.remove(); return; }
         y += getCurrentFallSpeed();
-        item.style.transform = `translate3d(0, ${y + size}px, 0)`;
+        item.style.top = `${y}px`;
         
         frameCount++;
         if (!isDead && frameCount % collisionInterval === 0) {
@@ -2184,14 +2186,18 @@ function getDisplayPlayerName(value) {
     return String(value).split('\u200B')[0] || '匿名忍者';
 }
 
-function makeFallbackPlayerName(baseName) {
+function getDeviceId() {
     const deviceIdKey = 'narusasuDeviceId';
     let deviceId = localStorage.getItem(deviceIdKey);
     if (!deviceId) {
         deviceId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
         localStorage.setItem(deviceIdKey, deviceId);
     }
-    return `${baseName}\u200B${deviceId}-${Date.now().toString(36)}`;
+    return deviceId;
+}
+
+function makeDevicePlayerName(baseName) {
+    return `${baseName}\u200B${getDeviceId()}`;
 }
 
 function isDuplicateNameError(error) {
@@ -2260,7 +2266,7 @@ async function submitScore() {
     setLeaderboardStatus('成绩提交中...');
 
     const scorePayload = {
-        player_name: playerName,
+        player_name: makeDevicePlayerName(playerName),
         score: pendingScore.score,
         difficulty_key: pendingScore.difficulty_key,
         difficulty_name: pendingScore.difficulty_name,
@@ -2272,7 +2278,7 @@ async function submitScore() {
     const { data: existingRows, error: findError } = await client
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score')
-        .eq('player_name', playerName)
+        .eq('player_name', scorePayload.player_name)
         .limit(1);
 
     if (!findError && existingRows && existingRows.length > 0) {
@@ -2284,7 +2290,7 @@ async function submitScore() {
                 difficulty_name: scorePayload.difficulty_name,
                 created_at: scorePayload.created_at
             })
-            .eq('player_name', playerName);
+            .eq('player_name', scorePayload.player_name);
         error = updateResult.error;
     } else {
         const insertResult = await client
@@ -2293,16 +2299,27 @@ async function submitScore() {
         error = insertResult.error;
     }
 
-    if (error && (isDuplicateNameError(error) || String(error.message || '').includes('row-level security'))) {
-        const fallbackPayload = {
-            ...scorePayload,
-            player_name: makeFallbackPlayerName(playerName)
-        };
-        const fallbackResult = await client
+    if (error && isDuplicateNameError(error)) {
+        const displayName = getDisplayPlayerName(scorePayload.player_name);
+        const { data: duplicatedRows, error: duplicatedFindError } = await client
             .from(SUPABASE_SCORE_TABLE)
-            .insert(fallbackPayload);
-        error = fallbackResult.error;
-        usedFallbackName = !error;
+            .select('player_name, score')
+            .limit(100);
+        const sameDisplayNameRows = duplicatedFindError ? [] : (duplicatedRows || []).filter(row => getDisplayPlayerName(row.player_name) === displayName);
+        const bestExistingScore = sameDisplayNameRows.reduce((best, row) => Math.max(best, Number(row.score) || 0), 0);
+        if (sameDisplayNameRows.length > 0 && scorePayload.score > bestExistingScore) {
+            const updateResult = await client
+                .from(SUPABASE_SCORE_TABLE)
+                .update({
+                    score: scorePayload.score,
+                    difficulty_key: scorePayload.difficulty_key,
+                    difficulty_name: scorePayload.difficulty_name,
+                    created_at: scorePayload.created_at
+                })
+                .eq('player_name', sameDisplayNameRows[0].player_name);
+            error = updateResult.error;
+            usedFallbackName = !error;
+        }
     }
 
     submitScoreButton.disabled = false;
