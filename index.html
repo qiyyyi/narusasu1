@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>接金币小游戏 - 鸣人/佐助</title>
+    <link rel="preload" as="image" href="./images/naruto.png">
+    <link rel="preload" as="image" href="./images/sasuke.png">
+    <link rel="preload" as="image" href="./images/grass.png">
+    <link rel="preload" as="image" href="./images/fishcake.png">
+    <link rel="preload" as="image" href="./images/tomato.png">
+    <link rel="preload" as="image" href="./images/special.png">
     <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -201,6 +207,11 @@
         #player.dead {
             animation: deathShake 0.5s ease-in-out !important;
             filter: drop-shadow(0 0 15px #ff0000);
+        }
+        #player.invincible {
+            opacity: 0.55;
+            filter: drop-shadow(0 0 14px rgba(14, 165, 233, 0.95));
+            animation: invincibleBlink 0.28s infinite alternate !important;
         }
 
         /* --------- 金币/道具 --------- */
@@ -770,6 +781,10 @@
             80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
             100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
         }
+        @keyframes invincibleBlink {
+            0%   { opacity: 0.38; }
+            100% { opacity: 0.72; }
+        }
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50%      { transform: translateY(-10px); }
@@ -822,14 +837,26 @@
             }
             #player,
             #partner {
-                width: 118px;
-                height: 118px;
-                bottom: 62px;
+                width: 100px;
+                height: 100px;
+                bottom: 58px;
             }
             #playerShadow,
             #partnerShadow {
-                bottom: 48px;
-                width: 76px;
+                bottom: 44px;
+                width: 64px;
+            }
+            .item {
+                width: 42px;
+                height: 42px;
+            }
+            .item.bomb {
+                width: 46px;
+                height: 46px;
+            }
+            .item.special {
+                width: 70px;
+                height: 70px;
             }
             #scoreBoard,
             #livesBoard,
@@ -865,7 +892,7 @@
             }
             #mobileControls {
                 display: flex;
-                bottom: max(22px, env(safe-area-inset-bottom));
+                bottom: calc(max(72px, env(safe-area-inset-bottom)) + 12px);
                 padding: 0 max(28px, env(safe-area-inset-left)) 0 max(28px, env(safe-area-inset-right));
             }
             .menu-panel {
@@ -943,6 +970,7 @@
                 gap: 10px;
             }
             #mobileControls {
+                bottom: calc(max(78px, env(safe-area-inset-bottom)) + 12px);
                 padding: 0 24px;
             }
             .home-panel {
@@ -1048,13 +1076,18 @@
 /* ================= 配置 ================= */
 const PLAYER_WIDTH = 160;
 const PLAYER_HEIGHT = 160;
+const PLAYER_MOBILE_WIDTH = 100;
+const PLAYER_MOBILE_HEIGHT = 100;
 const PLAYER_SPEED = 5;              // 降低移速：10 → 5
 const PLAYER_MOBILE_SPEED = 4.2;
 const PLAYER_BASE_BOTTOM = 70;
-const PLAYER_MOBILE_BASE_BOTTOM = 62;
+const PLAYER_MOBILE_BASE_BOTTOM = 58;
 const JUMP_FORCE = 10.5;             // 小跳跃力度
 const GRAVITY = 0.55;                // 重力
 const ITEM_SIZE = 55;
+const ITEM_MOBILE_SIZE = 42;
+const BOMB_SIZE = 60;
+const BOMB_MOBILE_SIZE = 46;
 const SPECIAL_SIZE = 70;
 const PARTNER_DURATION = 15000;      // 分身持续时间 15秒
 const GAME_DURATION = 120;           // 所有难度统一倒计时 120 秒
@@ -1279,6 +1312,11 @@ let pendingScore = null;
 let scoreSubmitted = false;
 let supabaseClient = null;
 let assetsReady = false;
+let minimumLoadingDone = false;
+let loadedAssetCount = 0;
+let totalAssetCount = 0;
+let isInvincible = false;
+let invincibleTimerId = null;
 
 /* ================= 初始化角色 ================= */
 function setHero(hero) {
@@ -1296,10 +1334,30 @@ function setPartnerImage() {
 function preloadImage(src) {
     return new Promise(resolve => {
         const img = new Image();
-        img.onload = resolve;
-        img.onerror = resolve;
+        img.onload = () => {
+            loadedAssetCount++;
+            updateLoadingButton();
+            resolve();
+        };
+        img.onerror = () => {
+            loadedAssetCount++;
+            updateLoadingButton();
+            resolve();
+        };
         img.src = src;
     });
+}
+
+function updateLoadingButton() {
+    if (!assetsReady && totalAssetCount > 0) {
+        startButton.textContent = `图片加载中 ${loadedAssetCount}/${totalAssetCount}`;
+    }
+}
+
+function markAssetsReady() {
+    assetsReady = true;
+    startButton.disabled = false;
+    startButton.textContent = '开始游戏';
 }
 
 function preloadGameAssets() {
@@ -1311,11 +1369,14 @@ function preloadGameAssets() {
         IMG_NARUTO,
         IMG_SASUKE
     ];
-    Promise.all(imageSources.map(preloadImage)).then(() => {
-        assetsReady = true;
-        startButton.disabled = false;
-        startButton.textContent = '开始游戏';
-    });
+    totalAssetCount = imageSources.length;
+    updateLoadingButton();
+    Promise.all(imageSources.map(preloadImage)).then(markAssetsReady);
+    setTimeout(() => {
+        if (!assetsReady && loadedAssetCount >= 2) {
+            markAssetsReady();
+        }
+    }, 1800);
 }
 
 setHero('naruto');
@@ -1453,11 +1514,17 @@ function isMobileView() {
 }
 
 function getPlayerWidth() {
-    return isMobileView() ? 118 : PLAYER_WIDTH;
+    return isMobileView() ? PLAYER_MOBILE_WIDTH : PLAYER_WIDTH;
 }
 
 function getPlayerBaseBottom() {
     return isMobileView() ? PLAYER_MOBILE_BASE_BOTTOM : PLAYER_BASE_BOTTOM;
+}
+
+function getItemSize(type) {
+    if (type === 'special') return SPECIAL_SIZE;
+    if (type === 'bomb') return isMobileView() ? BOMB_MOBILE_SIZE : BOMB_SIZE;
+    return isMobileView() ? ITEM_MOBILE_SIZE : ITEM_SIZE;
 }
 
 function getPlayerSpeed() {
@@ -1624,21 +1691,18 @@ function createItem() {
     
     if (rand < bombChance) {
         itemType = 'bomb';
-        size = 60;
         item.classList.add('bomb');
     } else if (rand < bombChance + specialChance) {
         itemType = 'special';
-        size = SPECIAL_SIZE;
         item.classList.add('special');
     } else if (rand < bombChance + specialChance + 0.45) {
         itemType = 'tomato';
-        size = ITEM_SIZE;
         item.classList.add('tomato');
     } else {
         itemType = 'fishcake';
-        size = ITEM_SIZE;
         item.classList.add('fishcake');
     }
+    size = getItemSize(itemType);
     
     item.dataset.type = itemType;
     item.style.left = `${Math.random() * (window.innerWidth - size)}px`;
@@ -1687,6 +1751,11 @@ function collectItem(item, type, rect) {
     item.remove();
     
     if (type === 'bomb') {
+        if (isInvincible) {
+            createCollectEffect(rect.left, rect.top, 'rgba(14,165,233,0.85)');
+            showNotice('✨ 无敌穿过起爆符！');
+            return;
+        }
         playSound('hit');
         createCollectEffect(rect.left, rect.top, '#ff3333');
         showNotice('💥 踩到起爆符！');
@@ -1758,6 +1827,18 @@ function deactivatePartner() {
     showNotice('💨 分身消散了...');
 }
 
+function activateInvincibility(duration = 3000) {
+    isInvincible = true;
+    clearTimeout(invincibleTimerId);
+    player.classList.add('invincible');
+    showNotice('✨ 3秒无敌！');
+    invincibleTimerId = setTimeout(() => {
+        isInvincible = false;
+        player.classList.remove('invincible');
+        showNotice('⚠️ 无敌结束');
+    }, duration);
+}
+
 /* ================= 通知显示 ================= */
 function showNotice(text) {
     switchNotice.textContent = text;
@@ -1816,7 +1897,7 @@ function die() {
     velocityY = 0;
     isJumping = false;
     player.style.bottom = `${getPlayerBaseBottom()}px`;
-    playerShadow.style.width = '100px';
+    playerShadow.style.width = `${isMobileView() ? 64 : 100}px`;
     playerShadow.style.opacity = '1';
     
     setTimeout(() => {
@@ -1841,6 +1922,7 @@ function die() {
             }
             
             isDead = false;
+            activateInvincibility(3000);
             startItemSpawn();
         }
     }, SWITCH_AFTER_DEATH);
@@ -1913,6 +1995,8 @@ function openLeaderboard(showSubmit = false) {
     leaderboardOverlay.classList.remove('hidden');
     leaderboardSubmitArea.classList.toggle('hidden', !showSubmit || !pendingScore || scoreSubmitted);
     if (showSubmit && pendingScore && !scoreSubmitted) {
+        const savedName = localStorage.getItem('narusasuPlayerName') || '';
+        playerNameInput.value = savedName;
         setLeaderboardStatus(`本局得分 ${pendingScore.score}，输入昵称后提交成绩。`);
         playerNameInput.focus();
     }
@@ -1931,14 +2015,16 @@ async function submitScore() {
     }
     if (!pendingScore || scoreSubmitted) return;
     const playerName = playerNameInput.value.trim().slice(0, 12) || '匿名忍者';
+    localStorage.setItem('narusasuPlayerName', playerName);
     submitScoreButton.disabled = true;
     setLeaderboardStatus('成绩提交中...');
-    const { error } = await client.from(SUPABASE_SCORE_TABLE).insert({
+    const { error } = await client.from(SUPABASE_SCORE_TABLE).upsert({
         player_name: playerName,
         score: pendingScore.score,
         difficulty_key: pendingScore.difficulty_key,
-        difficulty_name: pendingScore.difficulty_name
-    });
+        difficulty_name: pendingScore.difficulty_name,
+        created_at: new Date().toISOString()
+    }, { onConflict: 'player_name' });
     submitScoreButton.disabled = false;
     if (error) {
         setLeaderboardStatus(`提交失败：${error.message}`);
