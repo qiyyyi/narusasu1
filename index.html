@@ -803,34 +803,34 @@
                 transform: translateX(-50%) translateY(-8px) scale(1.02); 
             }
         }
-        /* 走路摇摆动画 - 更Q弹 */
+        /* 走路摇摆动画 - 更明显的左右晃动 */
         @keyframes walk {
             0%, 100% { 
-                transform: translateX(-50%) rotate(-5deg) translateY(0) scaleY(1); 
+                transform: translateX(-50%) rotate(-7deg) translateY(0) scaleX(1.04) scaleY(0.96); 
             }
             25% { 
-                transform: translateX(-50%) rotate(0deg) translateY(-10px) scaleY(1.08); 
+                transform: translateX(-50%) rotate(0deg) translateY(-9px) scaleX(0.96) scaleY(1.06); 
             }
             50% { 
-                transform: translateX(-50%) rotate(5deg) translateY(0) scaleY(0.95); 
+                transform: translateX(-50%) rotate(7deg) translateY(0) scaleX(1.04) scaleY(0.96); 
             }
             75% { 
-                transform: translateX(-50%) rotate(0deg) translateY(-10px) scaleY(1.08); 
+                transform: translateX(-50%) rotate(0deg) translateY(-9px) scaleX(0.96) scaleY(1.06); 
             }
         }
-        /* 向左走动画 - 更Q弹 */
+        /* 向左走动画 - 更明显的左右晃动 */
         @keyframes walkLeft {
             0%, 100% { 
-                transform: translateX(-50%) scaleX(-1) rotate(-5deg) translateY(0) scaleY(1); 
+                transform: translateX(-50%) scaleX(-1.04) rotate(-7deg) translateY(0) scaleY(0.96); 
             }
             25% { 
-                transform: translateX(-50%) scaleX(-1) rotate(0deg) translateY(-10px) scaleY(1.08); 
+                transform: translateX(-50%) scaleX(-0.96) rotate(0deg) translateY(-9px) scaleY(1.06); 
             }
             50% { 
-                transform: translateX(-50%) scaleX(-1) rotate(5deg) translateY(0) scaleY(0.95); 
+                transform: translateX(-50%) scaleX(-1.04) rotate(7deg) translateY(0) scaleY(0.96); 
             }
             75% { 
-                transform: translateX(-50%) scaleX(-1) rotate(0deg) translateY(-10px) scaleY(1.08); 
+                transform: translateX(-50%) scaleX(-0.96) rotate(0deg) translateY(-9px) scaleY(1.06); 
             }
         }
         @keyframes sparkle {
@@ -910,12 +910,10 @@
                 width: 82px;
                 height: 82px;
                 bottom: 54px;
-                animation: none !important;
                 filter: none !important;
             }
             #player.invincible {
                 opacity: 0.62;
-                animation: none !important;
                 filter: none !important;
             }
             #playerShadow,
@@ -1184,8 +1182,8 @@ const PLAYER_WIDTH = 160;
 const PLAYER_HEIGHT = 160;
 const PLAYER_MOBILE_WIDTH = 82;
 const PLAYER_MOBILE_HEIGHT = 82;
-const PLAYER_SPEED = 5;              // 降低移速：10 → 5
-const PLAYER_MOBILE_SPEED = 3.6;
+const PLAYER_SPEED = 7;              // 电脑端移速
+const PLAYER_MOBILE_SPEED = 3.6;     // 手机端移速保持不变
 const PLAYER_BASE_BOTTOM = 70;
 const PLAYER_MOBILE_BASE_BOTTOM = 54;
 const JUMP_FORCE = 10.5;             // 小跳跃力度
