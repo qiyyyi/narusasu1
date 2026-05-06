@@ -259,7 +259,8 @@
             background-repeat: no-repeat;
             background-position: center bottom;
             transform: translateX(-50%);
-            opacity: 0.9;
+            opacity: 0.55;
+            filter: drop-shadow(0 0 12px rgba(14, 165, 233, 0.75));
             display: none;
             transform-origin: center bottom;
             z-index: 10;
@@ -271,7 +272,7 @@
         @keyframes partnerAppear {
             0% { transform: translateX(-50%) scale(0); opacity: 0; }
             60% { transform: translateX(-50%) scale(1.1); opacity: 1; }
-            100% { transform: translateX(-50%) scale(1); opacity: 0.85; }
+            100% { transform: translateX(-50%) scale(1); opacity: 0.55; }
         }
 
         /* --------- 分身计时器 --------- */
@@ -399,6 +400,23 @@
             font-size: 18px;
             color: #fff;
             margin-top: 10px;
+        }
+        #restartButton {
+            display: block;
+            margin: 18px auto 0;
+            padding: 12px 30px;
+            cursor: pointer;
+            border: 0;
+            border-radius: 999px;
+            color: #3d2914;
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffd700, #ff9a56);
+            box-shadow: 0 7px 0 #9b4d12, 0 10px 18px rgba(0,0,0,0.35);
+        }
+        #restartButton:active {
+            transform: translateY(4px);
+            box-shadow: 0 3px 0 #9b4d12, 0 6px 12px rgba(0,0,0,0.3);
         }
 
         /* --------- 主页 & 难度选择 --------- */
@@ -1260,6 +1278,7 @@ let partnerIntervalId = null;
 let pendingScore = null;
 let scoreSubmitted = false;
 let supabaseClient = null;
+let assetsReady = false;
 
 /* ================= 初始化角色 ================= */
 function setHero(hero) {
@@ -1274,7 +1293,35 @@ function setPartnerImage() {
     partner.style.backgroundImage = `url("${partnerHero}")`;
 }
 
+function preloadImage(src) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = resolve;
+        img.src = src;
+    });
+}
+
+function preloadGameAssets() {
+    const imageSources = [
+        './images/grass.png',
+        './images/tomato.png',
+        './images/fishcake.png',
+        './images/special.png',
+        IMG_NARUTO,
+        IMG_SASUKE
+    ];
+    Promise.all(imageSources.map(preloadImage)).then(() => {
+        assetsReady = true;
+        startButton.disabled = false;
+        startButton.textContent = '开始游戏';
+    });
+}
+
 setHero('naruto');
+startButton.disabled = true;
+startButton.textContent = '图片加载中...';
+preloadGameAssets();
 updateLives();
 renderDifficultyChoices();
 updateDifficultyBoard();
@@ -1320,7 +1367,7 @@ function startGameTimer() {
 }
 
 function getGameOverMessage(title = '感谢你帮助鸣佐') {
-    return `${title}<span>鸣佐only欢迎大家！<br>最终得分：${score}<br>可提交成绩进入全网排行榜<br>按 R 重新开始</span>`;
+    return `${title}<span>鸣佐only欢迎大家！<br>最终得分：${score}<br>可提交成绩进入全网排行榜</span><button id="restartButton" type="button">重新开始</button>`;
 }
 
 function handleGameFinished() {
@@ -1333,6 +1380,13 @@ function handleGameFinished() {
     openLeaderboard(true);
 }
 
+function bindRestartButton() {
+    const restartButton = document.getElementById('restartButton');
+    if (restartButton) {
+        restartButton.addEventListener('click', () => location.reload());
+    }
+}
+
 function finishGameByTime() {
     isGameOver = true;
     stopItemSpawn();
@@ -1343,10 +1397,15 @@ function finishGameByTime() {
     playSound('start');
     gameOverDiv.innerHTML = getGameOverMessage();
     gameOverDiv.style.display = 'block';
+    bindRestartButton();
     handleGameFinished();
 }
 
 function startGame(difficultyKey) {
+    if (!assetsReady) {
+        showNotice('图片加载中，请稍等...');
+        return;
+    }
     currentDifficultyKey = difficultyKey;
     currentDifficulty = DIFFICULTIES[difficultyKey];
     updateDifficultyBoard();
@@ -1601,8 +1660,8 @@ function createItem() {
                 return;
             }
             
-            // 检测分身碰撞
-            if (hasPartner && checkCollision(itemRect, partner.getBoundingClientRect())) {
+            // 检测分身碰撞：分身可以接普通分数/特殊道具，但会穿过炸弹
+            if (hasPartner && itemType !== 'bomb' && checkCollision(itemRect, partner.getBoundingClientRect())) {
                 collectItem(item, itemType, itemRect);
                 return;
             }
@@ -1768,6 +1827,7 @@ function die() {
             clearInterval(gameTimerId);
             gameOverDiv.innerHTML = getGameOverMessage();
             gameOverDiv.style.display = 'block';
+            bindRestartButton();
             handleGameFinished();
         } else {
             if (currentHero === 'naruto') {
