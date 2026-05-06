@@ -2018,13 +2018,32 @@ async function submitScore() {
     localStorage.setItem('narusasuPlayerName', playerName);
     submitScoreButton.disabled = true;
     setLeaderboardStatus('成绩提交中...');
-    const { error } = await client.from(SUPABASE_SCORE_TABLE).upsert({
+
+    const scorePayload = {
         player_name: playerName,
         score: pendingScore.score,
         difficulty_key: pendingScore.difficulty_key,
         difficulty_name: pendingScore.difficulty_name,
         created_at: new Date().toISOString()
-    }, { onConflict: 'player_name' });
+    };
+
+    let { error } = await client
+        .from(SUPABASE_SCORE_TABLE)
+        .upsert(scorePayload, { onConflict: 'player_name', ignoreDuplicates: false });
+
+    if (error && (error.code === '23505' || String(error.message).includes('duplicate key'))) {
+        const updateResult = await client
+            .from(SUPABASE_SCORE_TABLE)
+            .update({
+                score: scorePayload.score,
+                difficulty_key: scorePayload.difficulty_key,
+                difficulty_name: scorePayload.difficulty_name,
+                created_at: scorePayload.created_at
+            })
+            .eq('player_name', playerName);
+        error = updateResult.error;
+    }
+
     submitScoreButton.disabled = false;
     if (error) {
         setLeaderboardStatus(`提交失败：${error.message}`);
@@ -2032,7 +2051,7 @@ async function submitScore() {
     }
     scoreSubmitted = true;
     leaderboardSubmitArea.classList.add('hidden');
-    setLeaderboardStatus('提交成功！已刷新排行榜。');
+    setLeaderboardStatus('提交成功！同名玩家成绩已自动更新。');
     loadLeaderboard();
 }
 
