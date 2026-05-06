@@ -847,6 +847,8 @@
             }
             #mobileControls {
                 display: flex;
+                bottom: max(22px, env(safe-area-inset-bottom));
+                padding: 0 max(28px, env(safe-area-inset-left)) 0 max(28px, env(safe-area-inset-right));
             }
             .menu-panel {
                 width: min(94vw, 520px);
@@ -923,7 +925,7 @@
                 gap: 10px;
             }
             #mobileControls {
-                padding: 0 12px;
+                padding: 0 24px;
             }
             .home-panel {
                 min-height: min(76dvh, 500px);
@@ -1111,8 +1113,8 @@ const DIFFICULTIES = {
 /* ================= Supabase 全网排行榜配置 =================
    创建好 Supabase 后，把下面两个占位值换成你的真实配置。
    表名默认使用 game_scores。 */
-const SUPABASE_URL = '请替换为你的 Supabase Project URL';
-const SUPABASE_ANON_KEY = '请替换为你的 Supabase anon public key';
+const SUPABASE_URL = 'https://ehxdouwiwakgdgaeypxn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_LmK51lqixwFKRc0bfufY7w_XtflWQx3';
 const SUPABASE_SCORE_TABLE = 'game_scores';
 const LEADERBOARD_LIMIT = 10;
 
