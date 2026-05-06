@@ -155,6 +155,7 @@
             z-index: 5;
             pointer-events: none;
             transition: width 0.1s ease, opacity 0.1s ease;
+            will-change: width, opacity, left;
         }
         body.theme-naruto #playerShadow,
         body.theme-naruto #partnerShadow {
@@ -186,6 +187,7 @@
             animation: idle 2s ease-in-out infinite;
             transform-origin: center bottom;
             z-index: 10;
+            will-change: left, bottom, transform;
         }
         /* 静止状态：呼吸浮动效果 */
         #player.idle {
@@ -224,6 +226,7 @@
             background-repeat: no-repeat;
             background-position: center;
             animation: sparkle 1.5s infinite ease-in-out;
+            will-change: transform;
         }
         /* 番茄 */
         .item.tomato {
@@ -275,6 +278,7 @@
             display: none;
             transform-origin: center bottom;
             z-index: 10;
+            will-change: left, bottom, transform;
         }
         #partner.active {
             display: block;
@@ -837,26 +841,31 @@
             }
             #player,
             #partner {
-                width: 100px;
-                height: 100px;
-                bottom: 58px;
+                width: 92px;
+                height: 92px;
+                bottom: 56px;
             }
             #playerShadow,
             #partnerShadow {
-                bottom: 44px;
-                width: 64px;
+                bottom: 42px;
+                width: 58px;
             }
             .item {
-                width: 42px;
-                height: 42px;
+                width: 38px;
+                height: 38px;
+                animation: none;
+                filter: none !important;
             }
             .item.bomb {
-                width: 46px;
-                height: 46px;
+                width: 42px;
+                height: 42px;
+                animation: none;
             }
             .item.special {
                 width: 70px;
                 height: 70px;
+                animation: specialSparkle 1.1s infinite ease-in-out;
+                filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8)) !important;
             }
             #scoreBoard,
             #livesBoard,
@@ -1076,19 +1085,21 @@
 /* ================= 配置 ================= */
 const PLAYER_WIDTH = 160;
 const PLAYER_HEIGHT = 160;
-const PLAYER_MOBILE_WIDTH = 100;
-const PLAYER_MOBILE_HEIGHT = 100;
+const PLAYER_MOBILE_WIDTH = 92;
+const PLAYER_MOBILE_HEIGHT = 92;
 const PLAYER_SPEED = 5;              // 降低移速：10 → 5
-const PLAYER_MOBILE_SPEED = 4.2;
+const PLAYER_MOBILE_SPEED = 3.8;
 const PLAYER_BASE_BOTTOM = 70;
-const PLAYER_MOBILE_BASE_BOTTOM = 58;
+const PLAYER_MOBILE_BASE_BOTTOM = 56;
 const JUMP_FORCE = 10.5;             // 小跳跃力度
 const GRAVITY = 0.55;                // 重力
 const ITEM_SIZE = 55;
-const ITEM_MOBILE_SIZE = 42;
+const ITEM_MOBILE_SIZE = 38;
 const BOMB_SIZE = 60;
-const BOMB_MOBILE_SIZE = 46;
+const BOMB_MOBILE_SIZE = 42;
 const SPECIAL_SIZE = 70;
+const MAX_MOBILE_ITEMS = 12;
+const MAX_DESKTOP_ITEMS = 24;
 const PARTNER_DURATION = 15000;      // 分身持续时间 15秒
 const GAME_DURATION = 120;           // 所有难度统一倒计时 120 秒
 const SWITCH_AFTER_DEATH = 1500;
@@ -1496,10 +1507,11 @@ function getCurrentFallSpeed() {
 }
 
 function getCurrentSpawnInterval() {
-    return Math.max(
+    const baseInterval = Math.max(
         currentDifficulty.minInterval,
         currentDifficulty.baseInterval - getDifficultyLevel() * currentDifficulty.intervalShrink
     );
+    return isMobileView() ? Math.min(baseInterval + 120, 1400) : baseInterval;
 }
 
 function getCurrentBombChance() {
@@ -1529,6 +1541,14 @@ function getItemSize(type) {
 
 function getPlayerSpeed() {
     return isMobileView() ? PLAYER_MOBILE_SPEED : PLAYER_SPEED;
+}
+
+function getActiveItemLimit() {
+    return isMobileView() ? MAX_MOBILE_ITEMS : MAX_DESKTOP_ITEMS;
+}
+
+function getActiveItemCount() {
+    return gameArea.querySelectorAll('.item').length;
 }
 
 /* ================= 键盘控制 ================= */
@@ -1673,12 +1693,15 @@ function stopItemSpawn() {
 
 function spawnItemAndScheduleNext() {
     if (!isGameStarted || isGameOver || isDead) return;
-    createItem();
+    if (getActiveItemCount() < getActiveItemLimit()) {
+        createItem();
+    }
     itemTimer = setTimeout(spawnItemAndScheduleNext, getCurrentSpawnInterval());
 }
 
 function createItem() {
     if (isGameOver || !isGameStarted) return;
+    if (getActiveItemCount() >= getActiveItemLimit()) return;
     
     const item = document.createElement('div');
     item.className = 'item';
@@ -1707,15 +1730,19 @@ function createItem() {
     item.dataset.type = itemType;
     item.style.left = `${Math.random() * (window.innerWidth - size)}px`;
     item.style.top = `-${size}px`;
+    item.style.transform = 'translate3d(0, 0, 0)';
     gameArea.appendChild(item);
     
     let y = -size;
+    const collisionInterval = isMobileView() ? 2 : 1;
+    let frameCount = 0;
     function fall() {
         if (isGameOver) { item.remove(); return; }
         y += getCurrentFallSpeed();
-        item.style.top = `${y}px`;
+        item.style.transform = `translate3d(0, ${y + size}px, 0)`;
         
-        if (!isDead) {
+        frameCount++;
+        if (!isDead && frameCount % collisionInterval === 0) {
             const itemRect = item.getBoundingClientRect();
             
             // 检测主角碰撞
@@ -2027,31 +2054,55 @@ async function submitScore() {
         created_at: new Date().toISOString()
     };
 
-    let { error } = await client
+    const { data: existingRows, error: findError } = await client
         .from(SUPABASE_SCORE_TABLE)
-        .upsert(scorePayload, { onConflict: 'player_name', ignoreDuplicates: false });
+        .select('player_name, score')
+        .eq('player_name', playerName)
+        .limit(1);
 
-    if (error && (error.code === '23505' || String(error.message).includes('duplicate key'))) {
+    let error = findError;
+    if (!error && existingRows && existingRows.length > 0) {
         const updateResult = await client
             .from(SUPABASE_SCORE_TABLE)
             .update({
-                score: scorePayload.score,
+                score: Math.max(Number(existingRows[0].score) || 0, scorePayload.score),
                 difficulty_key: scorePayload.difficulty_key,
                 difficulty_name: scorePayload.difficulty_name,
                 created_at: scorePayload.created_at
             })
             .eq('player_name', playerName);
         error = updateResult.error;
+    } else if (!error) {
+        const insertResult = await client
+            .from(SUPABASE_SCORE_TABLE)
+            .insert(scorePayload);
+        error = insertResult.error;
+        if (error && (error.code === '23505' || String(error.message).includes('duplicate key') || String(error.message).includes('unique'))) {
+            const updateResult = await client
+                .from(SUPABASE_SCORE_TABLE)
+                .update({
+                    score: scorePayload.score,
+                    difficulty_key: scorePayload.difficulty_key,
+                    difficulty_name: scorePayload.difficulty_name,
+                    created_at: scorePayload.created_at
+                })
+                .eq('player_name', playerName);
+            error = updateResult.error;
+        }
     }
 
     submitScoreButton.disabled = false;
     if (error) {
-        setLeaderboardStatus(`提交失败：${error.message}`);
+        if (String(error.message).includes('unique') || String(error.message).includes('duplicate')) {
+            setLeaderboardStatus('这个名字已有记录，已尝试自动更新；请点“刷新排行榜”查看。');
+        } else {
+            setLeaderboardStatus(`提交失败：${error.message}`);
+        }
         return;
     }
     scoreSubmitted = true;
     leaderboardSubmitArea.classList.add('hidden');
-    setLeaderboardStatus('提交成功！同名玩家成绩已自动更新。');
+    setLeaderboardStatus('提交成功！同名玩家会自动保留更高成绩。');
     loadLeaderboard();
 }
 
