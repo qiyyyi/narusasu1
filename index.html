@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>接金币小游戏 - 鸣人/佐助</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* --------- 基础布局 & 背景 --------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            font-family: "Microsoft YaHei", sans-serif;
+            transition: background 1s ease-in-out;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* 鸣人主题 - 温暖明亮的白天 */
+        body.theme-naruto {
+            background: linear-gradient(to bottom,
+                #87CEEB 0%,      /* 天空蓝 */
+                #B0E0E6 30%,     /* 淡蓝 */
+                #98D8C8 60%,     /* 薄荷绿 */
+                #7CB342 100%);   /* 草地绿 */
+        }
+        /* 佐助主题 - 神秘的黄昏夜晚 */
+        body.theme-sasuke {
+            background: linear-gradient(to bottom,
+                #ff9a56 0%,      /* 日落橙 */
+                #ff6b35 20%,     /* 火影橙 */
+                #1a1a2e 60%,     /* 夜空 */
+                #0f0f23 100%);   /* 深夜 */
+        }
+        #game {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            transition: background 1s ease-in-out;
+        }
+        /* 鸣人场景 - 阳光明媚的木叶村 */
+        body.theme-naruto #game {
+            background:
+                /* 太阳 */
+                radial-gradient(circle 60px at 85% 15%, #FFD700, #FFA500 40%, transparent 70%),
+                /* 白云 */
+                radial-gradient(ellipse 80px 35px at 15% 20%, rgba(255,255,255,0.9), transparent),
+                radial-gradient(ellipse 100px 40px at 20% 22%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(ellipse 70px 30px at 60% 15%, rgba(255,255,255,0.85), transparent),
+                radial-gradient(ellipse 90px 35px at 65% 18%, rgba(255,255,255,0.6), transparent),
+                radial-gradient(ellipse 60px 25px at 40% 25%, rgba(255,255,255,0.8), transparent),
+                /* 远处的山 */
+                linear-gradient(135deg, transparent 60%, rgba(76,175,80,0.3) 100%);
+        }
+        /* 佐助场景 - 神秘的夜晚 */
+        body.theme-sasuke #game {
+            background:
+                /* 月亮 */
+                radial-gradient(circle 40px at 85% 15%, #f5f5dc, rgba(245,245,220,0.3) 60%, transparent 70%),
+                /* 星星 */
+                radial-gradient(2px 2px at 20% 30%, #fff, transparent),
+                radial-gradient(2px 2px at 40% 20%, #fff, transparent),
+                radial-gradient(2px 2px at 60% 40%, #fff, transparent),
+                radial-gradient(2px 2px at 80% 25%, #fff, transparent),
+                radial-gradient(3px 3px at 15% 45%, #ffd700, transparent),
+                radial-gradient(2px 2px at 90% 35%, #fff, transparent),
+                radial-gradient(2px 2px at 25% 50%, #fff, transparent),
+                radial-gradient(2px 2px at 70% 45%, #fff, transparent),
+                /* 云层（暗色） */
+                radial-gradient(ellipse 120px 40px at 15% 15%, rgba(100,100,120,0.3), transparent),
+                radial-gradient(ellipse 100px 30px at 75% 20%, rgba(100,100,120,0.25), transparent);
+        }
+
+        /* --------- 木叶村标志装饰 --------- */
+        .konoha-symbol {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 50px;
+            opacity: 0.3;
+            filter: drop-shadow(0 0 10px #ff6b35);
+        }
+
+        /* --------- 地面（草地 + 泥土） --------- */
+        #ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 120px;
+            transition: filter 1s ease-in-out;
+        }
+        /* 草地图片层 */
+        #grassLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: url('./images/grass.png') repeat-x;
+            background-size: auto 100%;
+            background-position: bottom;
+            z-index: 2;
+        }
+        /* 泥土层 */
+        #dirtLayer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            z-index: 1;
+        }
+        /* 鸣人场景 - 明亮泥土 */
+        body.theme-naruto #dirtLayer {
+            background: linear-gradient(to top,
+                #5d4023 0%,
+                #8b6914 50%,
+                #a67c00 100%);
+        }
+        body.theme-naruto #grassLayer {
+            filter: brightness(1.1) saturate(1.2);
+        }
+        /* 佐助场景 - 暗色泥土 */
+        body.theme-sasuke #dirtLayer {
+            background: linear-gradient(to top,
+                #2a1a0a 0%,
+                #3d2914 50%,
+                #4a3520 100%);
+        }
+        body.theme-sasuke #grassLayer {
+            filter: brightness(0.6) saturate(0.8);
+        }
+
+        /* --------- 角色阴影 --------- */
+        #playerShadow, #partnerShadow {
+            position: absolute;
+            bottom: 55px;
+            width: 100px;
+            height: 20px;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            pointer-events: none;
+            transition: width 0.1s ease, opacity 0.1s ease;
+        }
+        body.theme-naruto #playerShadow,
+        body.theme-naruto #partnerShadow {
+            background: radial-gradient(ellipse, rgba(0,0,0,0.4) 0%, transparent 70%);
+        }
+        body.theme-sasuke #playerShadow,
+        body.theme-sasuke #partnerShadow {
+            background: radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 70%);
+        }
+        #partnerShadow {
+            display: none;
+        }
+        #partnerShadow.active {
+            display: block;
+        }
+
+        /* --------- 主角 --------- */
+        #player {
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            width: 160px;
+            height: 160px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            transform: translateX(-50%);
+            transition: background-image 0.3s, transform 0.1s;
+            animation: idle 2s ease-in-out infinite;
+            transform-origin: center bottom;
+            z-index: 10;
+        }
+        /* 静止状态：呼吸浮动效果 */
+        #player.idle {
+            animation: idle 2s ease-in-out infinite;
+        }
+        /* 移动状态：左右摇摆跑动效果 */
+        #player.walking {
+            animation: walk 0.3s ease-in-out infinite;
+        }
+        /* 向左移动时翻转 */
+        #player.face-left {
+            transform: translateX(-50%) scaleX(-1);
+        }
+        /* 向右移动 */
+        #player.face-right {
+            transform: translateX(-50%) scaleX(1);
+        }
+        /* 死亡状态 */
+        #player.dead {
+            animation: deathShake 0.5s ease-in-out !important;
+            filter: drop-shadow(0 0 15px #ff0000);
+        }
+
+        /* --------- 金币/道具 --------- */
+        .item {
+            position: absolute;
+            top: -60px;
+            width: 55px;
+            height: 55px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            animation: sparkle 1.5s infinite ease-in-out;
+        }
+        /* 番茄 */
+        .item.tomato {
+            background-image: url('./images/tomato.png');
+            filter: drop-shadow(0 0 8px rgba(255, 99, 71, 0.8));
+        }
+        /* 鱼板 */
+        .item.fishcake {
+            background-image: url('./images/fishcake.png');
+            filter: drop-shadow(0 0 8px rgba(255, 182, 193, 0.8));
+        }
+        /* 特殊道具 - 鸣人jj */
+        .item.special {
+            width: 70px;
+            height: 70px;
+            background-image: url('./images/special.png');
+            filter: drop-shadow(0 0 15px rgba(255, 215, 0, 1));
+            animation: specialSparkle 0.8s infinite ease-in-out;
+        }
+        @keyframes specialSparkle {
+            0%, 100% { transform: scale(1) rotate(-5deg); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 1)); }
+            50%      { transform: scale(1.2) rotate(5deg); filter: drop-shadow(0 0 25px rgba(255, 165, 0, 1)); }
+        }
+        /* 炸弹 */
+        .item.bomb {
+            width: 60px;
+            height: 60px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="60" r="35" fill="%23333"/><rect x="48" y="15" width="4" height="20" fill="%23654321" rx="2"/><ellipse cx="50" cy="12" rx="8" ry="6" fill="%23ff6b35"><animate attributeName="ry" values="6;10;6" dur="0.5s" repeatCount="indefinite"/></ellipse><circle cx="35" cy="50" r="3" fill="%23555"/><circle cx="45" cy="65" r="3" fill="%23555"/><circle cx="60" cy="55" r="3" fill="%23555"/></svg>');
+            filter: drop-shadow(0 0 10px rgba(255, 107, 53, 0.8));
+            animation: bombShake 0.5s infinite ease-in-out;
+        }
+        @keyframes bombShake {
+            0%, 100% { transform: scale(1) rotate(-2deg); }
+            50%      { transform: scale(1.05) rotate(2deg); }
+        }
+
+        /* --------- 分身角色 --------- */
+        #partner {
+            position: absolute;
+            bottom: 70px;
+            width: 160px;
+            height: 160px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            transform: translateX(-50%);
+            opacity: 0.9;
+            display: none;
+            transform-origin: center bottom;
+            z-index: 10;
+        }
+        #partner.active {
+            display: block;
+            animation: partnerAppear 0.5s ease-out;
+        }
+        @keyframes partnerAppear {
+            0% { transform: translateX(-50%) scale(0); opacity: 0; }
+            60% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1); opacity: 0.85; }
+        }
+
+        /* --------- 分身计时器 --------- */
+        #partnerTimer {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #ff6b35, #ff9a56);
+            border: 3px solid #ffd700;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.6);
+            font-family: 'Kalam', cursive;
+            display: none;
+        }
+        #partnerTimer.active {
+            display: block;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* --------- 计分板（卷轴风格） --------- */
+        #scoreBoard {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            min-width: 112px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #3d2914;
+            padding: 12px 22px 12px 18px;
+            background: linear-gradient(to bottom,
+                #f5e6d3 0%,
+                #e8d4bc 50%,
+                #d4c4a8 100%);
+            border: 3px solid #8b7355;
+            border-radius: 999px;
+            box-shadow:
+                0 4px 15px rgba(0,0,0,0.4),
+                inset 0 2px 5px rgba(255,255,255,0.5);
+            font-family: 'Kalam', cursive;
+        }
+        #scoreBoard::before {
+            content: '';
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            margin-right: 8px;
+            vertical-align: -6px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        body.theme-naruto #scoreBoard::before {
+            background-image: url('./images/fishcake.png');
+        }
+        body.theme-sasuke #scoreBoard::before {
+            background-image: url('./images/tomato.png');
+        }
+
+        /* --------- 生命值显示 --------- */
+        #livesBoard {
+            position: absolute;
+            top: 15px;
+            left: 148px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #3d2914;
+            padding: 12px 18px;
+            background: linear-gradient(to bottom,
+                #f5e6d3 0%,
+                #e8d4bc 50%,
+                #d4c4a8 100%);
+            border: 3px solid #8b7355;
+            border-radius: 999px;
+            box-shadow:
+                0 4px 15px rgba(0,0,0,0.4),
+                inset 0 2px 5px rgba(255,255,255,0.5);
+            font-family: 'Kalam', cursive;
+        }
+
+        /* --------- 操作提示 --------- */
+        #instructions {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        /* --------- 游戏结束 --------- */
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Kalam', cursive;
+            font-size: 42px;
+            color: #ffd700;
+            text-shadow:
+                0 0 10px #ff6b35,
+                0 0 20px #ff6b35,
+                2px 2px 4px #000;
+            background: linear-gradient(135deg,
+                rgba(0,0,0,0.8) 0%,
+                rgba(30,30,50,0.9) 100%);
+            padding: 25px 40px;
+            border-radius: 15px;
+            border: 3px solid #ff6b35;
+            box-shadow: 0 0 30px rgba(255,107,53,0.5);
+            display: none;
+            text-align: center;
+        }
+        #gameOver span {
+            display: block;
+            font-size: 18px;
+            color: #fff;
+            margin-top: 10px;
+        }
+
+        /* --------- 主页 & 难度选择 --------- */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, rgba(255, 214, 102, 0.18), rgba(0, 0, 0, 0.78));
+            backdrop-filter: blur(4px);
+        }
+        .overlay.hidden {
+            display: none;
+        }
+        .menu-panel {
+            width: min(92vw, 620px);
+            padding: 34px 36px;
+            text-align: center;
+            color: #fff;
+            background: linear-gradient(135deg, rgba(25, 18, 40, 0.94), rgba(67, 37, 16, 0.94));
+            border: 4px solid #ffd700;
+            border-radius: 24px;
+            box-shadow: 0 0 35px rgba(255, 166, 0, 0.45), inset 0 0 20px rgba(255,255,255,0.08);
+        }
+        .home-panel {
+            position: relative;
+            width: min(92vw, 760px);
+            min-height: 430px;
+            padding: 44px 150px 36px;
+            overflow: hidden;
+        }
+        .home-title-main {
+            display: block;
+            font-size: 42px;
+            line-height: 1.15;
+        }
+        .home-title-sub {
+            display: block;
+            margin-top: 6px;
+            font-size: 24px;
+            color: #fff3b0;
+        }
+        .home-question {
+            margin: 18px auto 26px;
+            font-size: 20px;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.55);
+        }
+        .home-hero {
+            position: absolute;
+            bottom: 12px;
+            width: 155px;
+            height: 210px;
+            z-index: 1;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            filter: drop-shadow(0 10px 12px rgba(0,0,0,0.5));
+            pointer-events: none;
+        }
+        .home-panel h1,
+        .home-panel p,
+        .home-panel .home-items,
+        .home-panel .menu-button {
+            position: relative;
+            z-index: 2;
+        }
+        .home-hero.naruto {
+            left: 0;
+            background-image: url('./images/naruto.png');
+        }
+        .home-hero.sasuke {
+            right: 0;
+            background-image: url('./images/sasuke.png');
+            transform: scaleX(-1);
+        }
+        .home-items {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+        .home-item {
+            width: 48px;
+            height: 48px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            animation: float 1.8s ease-in-out infinite;
+        }
+        .home-item.fishcake {
+            background-image: url('./images/fishcake.png');
+        }
+        .home-item.tomato {
+            background-image: url('./images/tomato.png');
+            animation-delay: 0.25s;
+        }
+        .menu-panel h1,
+        .menu-panel h2 {
+            margin-bottom: 14px;
+            font-family: 'Kalam', cursive;
+            color: #ffd700;
+            text-shadow: 0 0 12px #ff6b35, 2px 2px 4px #000;
+        }
+        .menu-panel h1 {
+            font-size: 46px;
+        }
+        .menu-panel h2 {
+            font-size: 36px;
+        }
+        .menu-panel p {
+            margin: 10px 0 22px;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.9);
+        }
+        .menu-button,
+        .difficulty-button,
+        .leaderboard-button {
+            cursor: pointer;
+            border: 0;
+            color: #3d2914;
+            font-weight: 800;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .menu-button {
+            padding: 14px 38px;
+            font-size: 24px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #ffd700, #ff9a56);
+            box-shadow: 0 8px 0 #9b4d12, 0 12px 24px rgba(0,0,0,0.35);
+        }
+        .menu-button:hover,
+        .difficulty-button:hover,
+        .leaderboard-button:hover {
+            transform: translateY(-3px) scale(1.03);
+            filter: brightness(1.08);
+        }
+        .leaderboard-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .leaderboard-button {
+            padding: 10px 18px;
+            font-size: 16px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #fff2b8, #ffb86b);
+            box-shadow: 0 5px 0 rgba(112, 59, 9, 0.9), 0 8px 14px rgba(0,0,0,0.25);
+        }
+        .leaderboard-button.secondary {
+            color: #fff;
+            background: linear-gradient(135deg, #334155, #0f172a);
+            box-shadow: 0 5px 0 rgba(0,0,0,0.55), 0 8px 14px rgba(0,0,0,0.25);
+        }
+        .leaderboard-form {
+            display: grid;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        #playerNameInput {
+            width: 100%;
+            padding: 13px 16px;
+            color: #3d2914;
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+            border: 3px solid #ffd700;
+            border-radius: 999px;
+            outline: none;
+            background: rgba(255,255,255,0.92);
+        }
+        #leaderboardStatus {
+            min-height: 20px;
+            color: #fff3b0;
+            font-size: 14px;
+        }
+        #leaderboardList {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+            text-align: left;
+        }
+        .leaderboard-row {
+            display: grid;
+            grid-template-columns: 48px 1fr 74px;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 12px;
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,215,0,0.35);
+            border-radius: 12px;
+        }
+        .leaderboard-rank {
+            color: #ffd700;
+            font-weight: 900;
+        }
+        .leaderboard-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leaderboard-score {
+            color: #fff3b0;
+            font-weight: 900;
+            text-align: right;
+        }
+        .difficulty-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+        .difficulty-button {
+            min-height: 105px;
+            padding: 16px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #fff2b8, #ffb86b);
+            box-shadow: 0 6px 0 rgba(112, 59, 9, 0.9), 0 10px 18px rgba(0,0,0,0.25);
+        }
+        .difficulty-button strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+        .difficulty-button span {
+            display: block;
+            color: #5d4023;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        #difficultyBoard {
+            position: absolute;
+            top: 15px;
+            right: 154px;
+            min-width: 150px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #3d2914;
+            padding: 12px 18px;
+            background: linear-gradient(to bottom, #f5e6d3 0%, #e8d4bc 50%, #d4c4a8 100%);
+            border: 3px solid #8b7355;
+            border-radius: 999px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255,255,255,0.5);
+            font-family: 'Kalam', cursive;
+        }
+        #timeBoard {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            min-width: 118px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #3d2914;
+            padding: 12px 18px;
+            background: linear-gradient(to bottom, #fff7cc 0%, #f5d976 50%, #d4a731 100%);
+            border: 3px solid #8b7355;
+            border-radius: 999px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255,255,255,0.5);
+            font-family: 'Kalam', cursive;
+        }
+        #timeBoard.warning {
+            color: #b91c1c;
+            border-color: #ef4444;
+            animation: pulse 0.6s infinite;
+        }
+
+        /* --------- 角色切换提示 --------- */
+        #switchNotice {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Kalam', cursive;
+            font-size: 28px;
+            color: #fff;
+            text-shadow: 0 0 15px #0ea5e9;
+            background: rgba(0,0,0,0.7);
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 2px solid #0ea5e9;
+            display: none;
+            animation: fadeInOut 1.5s ease-in-out;
+        }
+
+        /* --------- 动画 --------- */
+        @keyframes popIn {
+            0%   { transform: translate(-50%, 30px) scale(0.5); opacity: 0; }
+            60%  { transform: translate(-50%, -10px) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, 0) scale(1); }
+        }
+        /* 静止呼吸动画 */
+        @keyframes idle {
+            0%, 100% { 
+                transform: translateX(-50%) translateY(0) scale(1); 
+            }
+            50% { 
+                transform: translateX(-50%) translateY(-8px) scale(1.02); 
+            }
+        }
+        /* 走路摇摆动画 - 更Q弹 */
+        @keyframes walk {
+            0%, 100% { 
+                transform: translateX(-50%) rotate(-5deg) translateY(0) scaleY(1); 
+            }
+            25% { 
+                transform: translateX(-50%) rotate(0deg) translateY(-10px) scaleY(1.08); 
+            }
+            50% { 
+                transform: translateX(-50%) rotate(5deg) translateY(0) scaleY(0.95); 
+            }
+            75% { 
+                transform: translateX(-50%) rotate(0deg) translateY(-10px) scaleY(1.08); 
+            }
+        }
+        /* 向左走动画 - 更Q弹 */
+        @keyframes walkLeft {
+            0%, 100% { 
+                transform: translateX(-50%) scaleX(-1) rotate(-5deg) translateY(0) scaleY(1); 
+            }
+            25% { 
+                transform: translateX(-50%) scaleX(-1) rotate(0deg) translateY(-10px) scaleY(1.08); 
+            }
+            50% { 
+                transform: translateX(-50%) scaleX(-1) rotate(5deg) translateY(0) scaleY(0.95); 
+            }
+            75% { 
+                transform: translateX(-50%) scaleX(-1) rotate(0deg) translateY(-10px) scaleY(1.08); 
+            }
+        }
+        @keyframes sparkle {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+            50%      { transform: scale(1.15) rotate(10deg); opacity: 1; }
+        }
+        @keyframes deathShake {
+            0%, 100% { transform: translateX(-50%) rotate(0deg); }
+            20%      { transform: translateX(-50%) rotate(-15deg) scale(0.95); }
+            40%      { transform: translateX(-50%) rotate(15deg) scale(0.95); }
+            60%      { transform: translateX(-50%) rotate(-15deg) scale(0.95); }
+            80%      { transform: translateX(-50%) rotate(15deg) scale(0.95); }
+        }
+        @keyframes fadeInOut {
+            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            80%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+        /* --------- 手机虚拟按键 & 自适应 --------- */
+        #mobileControls {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 18px;
+            z-index: 60;
+            display: none;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 18px;
+            pointer-events: none;
+        }
+        .mobile-group {
+            display: flex;
+            gap: 14px;
+            pointer-events: auto;
+        }
+        .mobile-button {
+            width: 72px;
+            height: 72px;
+            border: 3px solid rgba(255, 215, 0, 0.95);
+            border-radius: 50%;
+            color: #fff;
+            font-size: 30px;
+            font-weight: 900;
+            background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.28), rgba(255, 107, 53, 0.82));
+            box-shadow: 0 8px 18px rgba(0,0,0,0.35), inset 0 2px 8px rgba(255,255,255,0.22);
+            touch-action: none;
+        }
+        .mobile-button:active,
+        .mobile-button.pressed {
+            transform: translateY(4px) scale(0.96);
+            filter: brightness(1.2);
+        }
+        .mobile-button.jump {
+            width: 82px;
+            height: 82px;
+            font-size: 34px;
+            background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.28), rgba(14, 165, 233, 0.82));
+        }
+
+        @media (max-width: 768px) {
+            #game {
+                height: 100dvh;
+            }
+            #player,
+            #partner {
+                width: 118px;
+                height: 118px;
+                bottom: 62px;
+            }
+            #playerShadow,
+            #partnerShadow {
+                bottom: 48px;
+                width: 76px;
+            }
+            #scoreBoard,
+            #livesBoard,
+            #difficultyBoard,
+            #timeBoard {
+                font-size: 13px;
+                padding: 7px 9px;
+                border-width: 2px;
+                border-radius: 999px;
+                min-width: 0;
+            }
+            #scoreBoard { left: 8px; top: 8px; }
+            #livesBoard { left: 88px; top: 8px; }
+            #difficultyBoard { right: 8px; left: auto; top: 48px; min-width: 108px; }
+            #timeBoard { right: 8px; left: auto; top: 8px; min-width: 82px; }
+            #scoreBoard::before {
+                width: 20px;
+                height: 20px;
+                margin-right: 4px;
+                vertical-align: -5px;
+            }
+            #partnerTimer {
+                top: 88px;
+                right: 8px;
+                font-size: 13px;
+                padding: 7px 10px;
+                border-width: 2px;
+            }
+            #instructions {
+                bottom: 104px;
+                width: 92vw;
+                font-size: 12px;
+            }
+            #mobileControls {
+                display: flex;
+            }
+            .menu-panel {
+                width: min(94vw, 520px);
+                max-height: 88dvh;
+                overflow-y: auto;
+                padding: 24px 18px;
+            }
+            .home-panel {
+                min-height: min(74dvh, 520px);
+                padding: 22px 24px 26px;
+            }
+            .home-title-main {
+                font-size: 28px;
+                max-width: 70%;
+                margin: 0 auto;
+            }
+            .home-title-sub {
+                font-size: 17px;
+            }
+            .home-question {
+                max-width: 68%;
+                font-size: 15px;
+            }
+            .home-hero {
+                width: 118px;
+                height: 176px;
+                bottom: 8px;
+                opacity: 0.96;
+            }
+            .home-hero.naruto {
+                left: -18px;
+            }
+            .home-hero.sasuke {
+                right: -18px;
+            }
+            .home-items {
+                margin-bottom: 16px;
+            }
+            .difficulty-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .difficulty-button {
+                min-height: 82px;
+                padding: 12px;
+            }
+            .difficulty-button strong {
+                font-size: 20px;
+            }
+            #gameOver {
+                width: 88vw;
+                font-size: 30px;
+                padding: 22px 18px;
+            }
+            #switchNotice {
+                width: 86vw;
+                font-size: 22px;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .mobile-button {
+                width: 62px;
+                height: 62px;
+                font-size: 26px;
+            }
+            .mobile-button.jump {
+                width: 72px;
+                height: 72px;
+                font-size: 30px;
+            }
+            .mobile-group {
+                gap: 10px;
+            }
+            #mobileControls {
+                padding: 0 12px;
+            }
+            .home-panel {
+                min-height: min(76dvh, 500px);
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+            .home-title-main {
+                max-width: 74%;
+                font-size: 24px;
+            }
+            .home-question {
+                max-width: 72%;
+                font-size: 14px;
+            }
+            .home-hero {
+                width: 104px;
+                height: 158px;
+            }
+            .home-hero.naruto {
+                left: -24px;
+            }
+            .home-hero.sasuke {
+                right: -24px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="game">
+    <div class="konoha-symbol">🍃</div>
+    <div id="ground">
+        <div id="grassLayer"></div>
+        <div id="dirtLayer"></div>
+    </div>
+    <audio id="bgm" loop preload="auto"></audio>
+    <div id="playerShadow"></div>
+    <div id="partnerShadow"></div>
+    <div id="player"></div>
+    <div id="partner"></div>
+    <div id="scoreBoard">0</div>
+    <div id="livesBoard">❤️ ❤️ ❤️</div>
+    <div id="difficultyBoard">难度：未选择</div>
+    <div id="timeBoard">⏱ 120s</div>
+    <div id="partnerTimer">🔥 分身: 15s</div>
+    <div id="instructions">⬅️ A/← 左移 | ➡️ D/→ 右移 | ⬆️ W/↑/空格 跳跃</div>
+    <div id="switchNotice">🔄 佐助登场！</div>
+    <div id="gameOver">游戏结束！<span>按 R 重新开始</span></div>
+
+    <div id="homeOverlay" class="overlay">
+        <div class="menu-panel home-panel">
+            <div class="home-hero naruto"></div>
+            <div class="home-hero sasuke"></div>
+            <h1><span class="home-title-main">2026鸣佐only即将开启</span><span class="home-title-sub">鸣人与佐助的补给修行</span></h1>
+            <p class="home-question">你能帮助鸣佐两人攒到足够的鱼板和番茄吗？</p>
+            <div class="home-items">
+                <div class="home-item fishcake"></div>
+                <div class="home-item tomato"></div>
+            </div>
+            <button id="startButton" class="menu-button">开始游戏</button>
+            <div class="leaderboard-actions">
+                <button id="homeLeaderboardButton" class="leaderboard-button secondary" type="button">查看排行榜</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="difficultyOverlay" class="overlay hidden">
+        <div class="menu-panel">
+            <h2>选择修行难度</h2>
+            <p>难度会决定初始速度、生成频率、后期成长和危险道具数量。</p>
+            <div id="difficultyChoices" class="difficulty-grid"></div>
+        </div>
+    </div>
+
+    <div id="leaderboardOverlay" class="overlay hidden">
+        <div class="menu-panel">
+            <h2>全网排行榜</h2>
+            <p id="leaderboardStatus">填写 Supabase 配置后即可显示所有玩家排名。</p>
+            <div id="leaderboardSubmitArea" class="leaderboard-form hidden">
+                <input id="playerNameInput" type="text" maxlength="12" placeholder="输入昵称，最多12字" autocomplete="off">
+                <button id="submitScoreButton" class="leaderboard-button" type="button">提交成绩</button>
+            </div>
+            <div id="leaderboardList"></div>
+            <div class="leaderboard-actions">
+                <button id="refreshLeaderboardButton" class="leaderboard-button" type="button">刷新排行榜</button>
+                <button id="closeLeaderboardButton" class="leaderboard-button secondary" type="button">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mobileControls" aria-label="手机虚拟按键">
+        <div class="mobile-group">
+            <button id="mobileLeft" class="mobile-button" type="button">◀</button>
+            <button id="mobileRight" class="mobile-button" type="button">▶</button>
+        </div>
+        <div class="mobile-group">
+            <button id="mobileJump" class="mobile-button jump" type="button">⬆</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ================= 配置 ================= */
+const PLAYER_WIDTH = 160;
+const PLAYER_HEIGHT = 160;
+const PLAYER_SPEED = 5;              // 降低移速：10 → 5
+const PLAYER_MOBILE_SPEED = 4.2;
+const PLAYER_BASE_BOTTOM = 70;
+const PLAYER_MOBILE_BASE_BOTTOM = 62;
+const JUMP_FORCE = 10.5;             // 小跳跃力度
+const GRAVITY = 0.55;                // 重力
+const ITEM_SIZE = 55;
+const SPECIAL_SIZE = 70;
+const PARTNER_DURATION = 15000;      // 分身持续时间 15秒
+const GAME_DURATION = 120;           // 所有难度统一倒计时 120 秒
+const SWITCH_AFTER_DEATH = 1500;
+const MAX_LIVES = 3;
+
+const DIFFICULTIES = {
+    easy: {
+        name: '简单',
+        icon: '🌱',
+        desc: '慢速练习：道具较慢、炸弹少，适合熟悉操作。',
+        baseFallSpeed: 2.2,
+        speedGrowth: 0.16,
+        maxFallSpeed: 5.2,
+        baseInterval: 1150,
+        intervalShrink: 35,
+        minInterval: 620,
+        specialChance: 0.10,
+        bombChance: 0.06,
+        bombGrowth: 0.006,
+        maxBombChance: 0.16,
+        difficultyStepScore: 10
+    },
+    normal: {
+        name: '普通',
+        icon: '🔥',
+        desc: '标准修行：速度和炸弹会稳定提升。',
+        baseFallSpeed: 2.8,
+        speedGrowth: 0.22,
+        maxFallSpeed: 6.8,
+        baseInterval: 950,
+        intervalShrink: 42,
+        minInterval: 480,
+        specialChance: 0.08,
+        bombChance: 0.10,
+        bombGrowth: 0.008,
+        maxBombChance: 0.23,
+        difficultyStepScore: 8
+    },
+    hard: {
+        name: '困难',
+        icon: '⚡',
+        desc: '高压挑战：开局更快，后期掉落密度明显增加。',
+        baseFallSpeed: 3.4,
+        speedGrowth: 0.30,
+        maxFallSpeed: 8.6,
+        baseInterval: 780,
+        intervalShrink: 48,
+        minInterval: 360,
+        specialChance: 0.07,
+        bombChance: 0.15,
+        bombGrowth: 0.010,
+        maxBombChance: 0.32,
+        difficultyStepScore: 7
+    },
+    ninja: {
+        name: '忍者',
+        icon: '🥷',
+        desc: '极限试炼：超快节奏、炸弹多，分身也救不了手残。',
+        baseFallSpeed: 4.2,
+        speedGrowth: 0.40,
+        maxFallSpeed: 10.8,
+        baseInterval: 620,
+        intervalShrink: 55,
+        minInterval: 260,
+        specialChance: 0.055,
+        bombChance: 0.20,
+        bombGrowth: 0.013,
+        maxBombChance: 0.42,
+        difficultyStepScore: 6
+    }
+};
+
+/* ================= Supabase 全网排行榜配置 =================
+   创建好 Supabase 后，把下面两个占位值换成你的真实配置。
+   表名默认使用 game_scores。 */
+const SUPABASE_URL = '请替换为你的 Supabase Project URL';
+const SUPABASE_ANON_KEY = '请替换为你的 Supabase anon public key';
+const SUPABASE_SCORE_TABLE = 'game_scores';
+const LEADERBOARD_LIMIT = 10;
+
+/* ================= 角色贴图 ================= */
+const IMG_NARUTO = './images/naruto.png';
+const IMG_SASUKE = './images/sasuke.png';
+
+/* ================= 音效配置 ================= */
+let audioContext = null;
+let bgmStarted = false;
+
+function getAudioContext() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    return audioContext;
+}
+
+function playTone(frequency, duration, type = 'sine', volume = 0.08, delay = 0) {
+    const ctx = getAudioContext();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const startTime = ctx.currentTime + delay;
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration + 0.03);
+}
+
+function playSound(name) {
+    try {
+        const sounds = {
+            jump: () => {
+                playTone(420, 0.10, 'triangle', 0.07);
+                playTone(620, 0.12, 'triangle', 0.06, 0.08);
+            },
+            collect: () => {
+                playTone(740, 0.08, 'sine', 0.08);
+                playTone(980, 0.10, 'sine', 0.07, 0.07);
+            },
+            special: () => {
+                playTone(520, 0.08, 'square', 0.06);
+                playTone(780, 0.10, 'square', 0.06, 0.08);
+                playTone(1040, 0.14, 'square', 0.05, 0.18);
+            },
+            hit: () => {
+                playTone(130, 0.22, 'sawtooth', 0.10);
+                playTone(80, 0.28, 'sawtooth', 0.08, 0.08);
+            },
+            switch: () => {
+                playTone(330, 0.10, 'triangle', 0.06);
+                playTone(660, 0.14, 'triangle', 0.06, 0.10);
+            },
+            start: () => {
+                playTone(392, 0.08, 'sine', 0.06);
+                playTone(523, 0.08, 'sine', 0.06, 0.08);
+                playTone(659, 0.16, 'sine', 0.06, 0.16);
+            }
+        };
+        sounds[name]?.();
+    } catch (error) {
+        // 浏览器禁止音频时静默跳过，避免影响游戏
+    }
+}
+
+function startBgm() {
+    if (bgmStarted) return;
+    bgmStarted = true;
+    const melody = [262, 330, 392, 330, 294, 349, 440, 349];
+    let index = 0;
+    setInterval(() => {
+        if (!isGameStarted || isGameOver) return;
+        playTone(melody[index % melody.length], 0.22, 'triangle', 0.025);
+        index++;
+    }, 360);
+}
+
+/* ================= DOM 元素 ================= */
+const player = document.getElementById('player');
+const partner = document.getElementById('partner');
+const playerShadow = document.getElementById('playerShadow');
+const partnerShadow = document.getElementById('partnerShadow');
+const partnerTimer = document.getElementById('partnerTimer');
+const scoreBoard = document.getElementById('scoreBoard');
+const livesBoard = document.getElementById('livesBoard');
+const difficultyBoard = document.getElementById('difficultyBoard');
+const timeBoard = document.getElementById('timeBoard');
+const gameOverDiv = document.getElementById('gameOver');
+const switchNotice = document.getElementById('switchNotice');
+const gameArea = document.getElementById('game');
+const homeOverlay = document.getElementById('homeOverlay');
+const difficultyOverlay = document.getElementById('difficultyOverlay');
+const startButton = document.getElementById('startButton');
+const difficultyChoices = document.getElementById('difficultyChoices');
+const mobileLeft = document.getElementById('mobileLeft');
+const mobileRight = document.getElementById('mobileRight');
+const mobileJump = document.getElementById('mobileJump');
+const leaderboardOverlay = document.getElementById('leaderboardOverlay');
+const homeLeaderboardButton = document.getElementById('homeLeaderboardButton');
+const closeLeaderboardButton = document.getElementById('closeLeaderboardButton');
+const refreshLeaderboardButton = document.getElementById('refreshLeaderboardButton');
+const submitScoreButton = document.getElementById('submitScoreButton');
+const playerNameInput = document.getElementById('playerNameInput');
+const leaderboardList = document.getElementById('leaderboardList');
+const leaderboardStatus = document.getElementById('leaderboardStatus');
+const leaderboardSubmitArea = document.getElementById('leaderboardSubmitArea');
+
+/* ================= 游戏状态 ================= */
+let playerX = window.innerWidth / 2;
+let playerY = 0;                     // 跳跃Y轴偏移
+let velocityY = 0;                   // Y轴速度
+let isJumping = false;               // 是否在跳跃中
+let score = 0;
+let lives = MAX_LIVES;
+let isDead = false;
+let isGameOver = false;
+let isGameStarted = false;
+let currentDifficultyKey = 'normal';
+let currentDifficulty = DIFFICULTIES.normal;
+let timeLeft = GAME_DURATION;
+let gameTimerId = null;
+let currentHero = 'naruto';
+let lastDirection = 'right';
+let isWalking = false;
+
+// 分身跳跃状态
+let partnerY = 0;
+let partnerVelocityY = 0;
+let partnerIsJumping = false;
+
+// 分身状态
+let hasPartner = false;
+let partnerTimeLeft = 0;
+let partnerIntervalId = null;
+let pendingScore = null;
+let scoreSubmitted = false;
+let supabaseClient = null;
+
+/* ================= 初始化角色 ================= */
+function setHero(hero) {
+    player.style.backgroundImage = `url("${hero === 'naruto' ? IMG_NARUTO : IMG_SASUKE}")`;
+    currentHero = hero;
+    document.body.className = hero === 'naruto' ? 'theme-naruto' : 'theme-sasuke';
+}
+
+function setPartnerImage() {
+    // 分身是另一个角色
+    const partnerHero = currentHero === 'naruto' ? IMG_SASUKE : IMG_NARUTO;
+    partner.style.backgroundImage = `url("${partnerHero}")`;
+}
+
+setHero('naruto');
+updateLives();
+renderDifficultyChoices();
+updateDifficultyBoard();
+updateTimeBoard();
+
+function updateLives() {
+    livesBoard.textContent = '❤️ '.repeat(lives).trim() || '💔';
+}
+
+function renderDifficultyChoices() {
+    difficultyChoices.innerHTML = '';
+    Object.entries(DIFFICULTIES).forEach(([key, config]) => {
+        const button = document.createElement('button');
+        button.className = 'difficulty-button';
+        button.type = 'button';
+        button.innerHTML = `<strong>${config.icon} ${config.name}</strong><span>${config.desc}</span>`;
+        button.addEventListener('click', () => startGame(key));
+        difficultyChoices.appendChild(button);
+    });
+}
+
+function updateDifficultyBoard() {
+    difficultyBoard.textContent = `难度：${currentDifficulty.icon} ${currentDifficulty.name}`;
+}
+
+function updateTimeBoard() {
+    timeBoard.textContent = `⏱ ${timeLeft}s`;
+    timeBoard.classList.toggle('warning', timeLeft <= 10 && isGameStarted && !isGameOver);
+}
+
+function startGameTimer() {
+    clearInterval(gameTimerId);
+    timeLeft = GAME_DURATION;
+    updateTimeBoard();
+    gameTimerId = setInterval(() => {
+        if (!isGameStarted || isGameOver || isDead) return;
+        timeLeft--;
+        updateTimeBoard();
+        if (timeLeft <= 0) {
+            finishGameByTime();
+        }
+    }, 1000);
+}
+
+function getGameOverMessage(title = '感谢你帮助鸣佐') {
+    return `${title}<span>鸣佐only欢迎大家！<br>最终得分：${score}<br>可提交成绩进入全网排行榜<br>按 R 重新开始</span>`;
+}
+
+function handleGameFinished() {
+    pendingScore = {
+        score,
+        difficulty_key: currentDifficultyKey,
+        difficulty_name: currentDifficulty.name
+    };
+    scoreSubmitted = false;
+    openLeaderboard(true);
+}
+
+function finishGameByTime() {
+    isGameOver = true;
+    stopItemSpawn();
+    clearInterval(gameTimerId);
+    if (hasPartner) {
+        deactivatePartner();
+    }
+    playSound('start');
+    gameOverDiv.innerHTML = getGameOverMessage();
+    gameOverDiv.style.display = 'block';
+    handleGameFinished();
+}
+
+function startGame(difficultyKey) {
+    currentDifficultyKey = difficultyKey;
+    currentDifficulty = DIFFICULTIES[difficultyKey];
+    updateDifficultyBoard();
+    difficultyOverlay.classList.add('hidden');
+    isGameStarted = true;
+    playSound('start');
+    startBgm();
+    startGameTimer();
+    showNotice(`${currentDifficulty.icon} ${currentDifficulty.name}难度开始！`);
+    startItemSpawn();
+}
+
+startButton.addEventListener('click', () => {
+    homeOverlay.classList.add('hidden');
+    difficultyOverlay.classList.remove('hidden');
+});
+
+function getDifficultyLevel() {
+    return Math.floor(score / currentDifficulty.difficultyStepScore);
+}
+
+function getCurrentFallSpeed() {
+    return Math.min(
+        currentDifficulty.maxFallSpeed,
+        currentDifficulty.baseFallSpeed + getDifficultyLevel() * currentDifficulty.speedGrowth
+    );
+}
+
+function getCurrentSpawnInterval() {
+    return Math.max(
+        currentDifficulty.minInterval,
+        currentDifficulty.baseInterval - getDifficultyLevel() * currentDifficulty.intervalShrink
+    );
+}
+
+function getCurrentBombChance() {
+    return Math.min(
+        currentDifficulty.maxBombChance,
+        currentDifficulty.bombChance + getDifficultyLevel() * currentDifficulty.bombGrowth
+    );
+}
+
+function isMobileView() {
+    return window.innerWidth <= 768;
+}
+
+function getPlayerWidth() {
+    return isMobileView() ? 118 : PLAYER_WIDTH;
+}
+
+function getPlayerBaseBottom() {
+    return isMobileView() ? PLAYER_MOBILE_BASE_BOTTOM : PLAYER_BASE_BOTTOM;
+}
+
+function getPlayerSpeed() {
+    return isMobileView() ? PLAYER_MOBILE_SPEED : PLAYER_SPEED;
+}
+
+/* ================= 键盘控制 ================= */
+let keys = { left: false, right: false };
+function tryJump() {
+    if (isGameStarted && !isJumping && !isDead && !isGameOver) {
+        isJumping = true;
+        velocityY = JUMP_FORCE;
+        playSound('jump');
+    }
+}
+
+function bindHoldButton(button, onPress, onRelease) {
+    const press = e => {
+        e.preventDefault();
+        button.classList.add('pressed');
+        onPress();
+    };
+    const release = e => {
+        e.preventDefault();
+        button.classList.remove('pressed');
+        onRelease();
+    };
+    button.addEventListener('pointerdown', press);
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointercancel', release);
+    button.addEventListener('pointerleave', release);
+}
+
+bindHoldButton(mobileLeft, () => keys.left = true, () => keys.left = false);
+bindHoldButton(mobileRight, () => keys.right = true, () => keys.right = false);
+mobileJump.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    mobileJump.classList.add('pressed');
+    tryJump();
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(type => {
+    mobileJump.addEventListener(type, e => {
+        e.preventDefault();
+        mobileJump.classList.remove('pressed');
+    });
+});
+
+window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+    // 跳跃：空格键 或 W键 或 上箭头
+    if ((e.key === ' ' || e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') && isGameStarted && !isJumping && !isDead) {
+        e.preventDefault();
+        tryJump();
+    }
+    if ((e.key === 'r' || e.key === 'R') && isGameOver) location.reload();
+});
+window.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+});
+
+/* ================= 游戏主循环 ================= */
+function gameLoop() {
+    if (isGameOver) return;
+    if (!isDead) {
+        let moving = false;
+        
+        if (keys.left) {
+            playerX -= getPlayerSpeed();
+            moving = true;
+            lastDirection = 'left';
+        }
+        if (keys.right) {
+            playerX += getPlayerSpeed();
+            moving = true;
+            lastDirection = 'right';
+        }
+        
+        const currentPlayerWidth = getPlayerWidth();
+        const baseBottom = getPlayerBaseBottom();
+        const minX = currentPlayerWidth / 2;
+        const maxX = window.innerWidth - currentPlayerWidth / 2;
+        playerX = Math.max(minX, Math.min(maxX, playerX));
+
+        // 小跳跃物理：用 bottom 抬高角色，避免被动画 transform 覆盖
+        if (isJumping) {
+            playerY += velocityY;
+            velocityY -= GRAVITY;
+            if (playerY <= 0) {
+                playerY = 0;
+                velocityY = 0;
+                isJumping = false;
+            }
+        }
+        player.style.left = `${playerX}px`;
+        player.style.bottom = `${baseBottom + playerY}px`;
+        playerShadow.style.left = `${playerX}px`;
+        playerShadow.style.width = `${Math.max(isMobileView() ? 44 : 58, (isMobileView() ? 76 : 100) - playerY * 0.55)}px`;
+        playerShadow.style.opacity = `${Math.max(0.28, 1 - playerY / 140)}`;
+        
+        // 更新主角动画和方向
+        updatePlayerAnimation(player, moving, lastDirection);
+        
+        // 更新分身位置（对称镜像）
+        if (hasPartner) {
+            const partnerX = window.innerWidth - playerX;
+            partner.style.left = `${partnerX}px`;
+            partner.style.bottom = `${baseBottom + playerY}px`;
+            partnerShadow.style.left = `${partnerX}px`;
+            partnerShadow.style.width = playerShadow.style.width;
+            partnerShadow.style.opacity = playerShadow.style.opacity;
+            // 分身方向与主角相反
+            const partnerDirection = lastDirection === 'left' ? 'right' : 'left';
+            updatePlayerAnimation(partner, moving, partnerDirection);
+        }
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+/* ================= 角色动画控制 ================= */
+function updatePlayerAnimation(element, moving, direction) {
+    if (element.classList.contains('dead')) return;
+    
+    if (moving) {
+        if (direction === 'left') {
+            element.style.animation = 'walkLeft 0.3s ease-in-out infinite';
+        } else {
+            element.style.animation = 'walk 0.3s ease-in-out infinite';
+        }
+    } else {
+        element.style.animation = 'idle 2s ease-in-out infinite';
+    }
+}
+
+/* ================= 道具生成 ================= */
+let itemTimer = null;
+function startItemSpawn() {
+    if (!isGameStarted || isGameOver) return;
+    stopItemSpawn();
+    itemTimer = setTimeout(spawnItemAndScheduleNext, getCurrentSpawnInterval());
+}
+function stopItemSpawn() {
+    clearTimeout(itemTimer);
+}
+
+function spawnItemAndScheduleNext() {
+    if (!isGameStarted || isGameOver || isDead) return;
+    createItem();
+    itemTimer = setTimeout(spawnItemAndScheduleNext, getCurrentSpawnInterval());
+}
+
+function createItem() {
+    if (isGameOver || !isGameStarted) return;
+    
+    const item = document.createElement('div');
+    item.className = 'item';
+    
+    // 决定道具类型：分数越高，炸弹概率越高
+    const rand = Math.random();
+    const bombChance = getCurrentBombChance();
+    const specialChance = currentDifficulty.specialChance;
+    let itemType, size;
+    
+    if (rand < bombChance) {
+        itemType = 'bomb';
+        size = 60;
+        item.classList.add('bomb');
+    } else if (rand < bombChance + specialChance) {
+        itemType = 'special';
+        size = SPECIAL_SIZE;
+        item.classList.add('special');
+    } else if (rand < bombChance + specialChance + 0.45) {
+        itemType = 'tomato';
+        size = ITEM_SIZE;
+        item.classList.add('tomato');
+    } else {
+        itemType = 'fishcake';
+        size = ITEM_SIZE;
+        item.classList.add('fishcake');
+    }
+    
+    item.dataset.type = itemType;
+    item.style.left = `${Math.random() * (window.innerWidth - size)}px`;
+    item.style.top = `-${size}px`;
+    gameArea.appendChild(item);
+    
+    let y = -size;
+    function fall() {
+        if (isGameOver) { item.remove(); return; }
+        y += getCurrentFallSpeed();
+        item.style.top = `${y}px`;
+        
+        if (!isDead) {
+            const itemRect = item.getBoundingClientRect();
+            
+            // 检测主角碰撞
+            if (checkCollision(itemRect, player.getBoundingClientRect())) {
+                collectItem(item, itemType, itemRect);
+                return;
+            }
+            
+            // 检测分身碰撞
+            if (hasPartner && checkCollision(itemRect, partner.getBoundingClientRect())) {
+                collectItem(item, itemType, itemRect);
+                return;
+            }
+        }
+        
+        if (y > window.innerHeight) {
+            item.remove();
+            return;
+        }
+        requestAnimationFrame(fall);
+    }
+    requestAnimationFrame(fall);
+}
+
+function checkCollision(rect1, rect2) {
+    return !(rect1.right < rect2.left ||
+             rect1.left > rect2.right ||
+             rect1.bottom < rect2.top ||
+             rect1.top > rect2.bottom);
+}
+
+function collectItem(item, type, rect) {
+    item.remove();
+    
+    if (type === 'bomb') {
+        playSound('hit');
+        createCollectEffect(rect.left, rect.top, '#ff3333');
+        showNotice('💥 踩到起爆符！');
+        die();
+    } else if (type === 'special') {
+        // 特殊道具：召唤分身
+        playSound('special');
+        activatePartner();
+        createCollectEffect(rect.left, rect.top, '#ffd700');
+        showNotice('🔥 影分身之术！');
+    } else {
+        // 普通金币
+        playSound('collect');
+        score++;
+        scoreBoard.textContent = score;
+        const color = type === 'tomato' ? '#ff6347' : '#ffb6c1';
+        createCollectEffect(rect.left, rect.top, color);
+    }
+}
+
+/* ================= 分身系统 ================= */
+function activatePartner() {
+    // 如果已有分身，重置时间
+    if (hasPartner) {
+        partnerTimeLeft = PARTNER_DURATION / 1000;
+        updatePartnerTimer();
+        return;
+    }
+    
+    hasPartner = true;
+    partnerTimeLeft = PARTNER_DURATION / 1000;
+    
+    // 设置分身图片（另一个角色）
+    setPartnerImage();
+    
+    // 初始位置（对称）
+    const partnerX = window.innerWidth - playerX;
+    partner.style.left = `${partnerX}px`;
+    partner.style.bottom = `${getPlayerBaseBottom() + playerY}px`;
+    partnerShadow.style.left = `${partnerX}px`;
+    partnerShadow.classList.add('active');
+    partner.classList.add('active');
+    
+    // 显示计时器
+    partnerTimer.classList.add('active');
+    updatePartnerTimer();
+    
+    // 开始倒计时
+    partnerIntervalId = setInterval(() => {
+        partnerTimeLeft--;
+        updatePartnerTimer();
+        
+        if (partnerTimeLeft <= 0) {
+            deactivatePartner();
+        }
+    }, 1000);
+}
+
+function updatePartnerTimer() {
+    partnerTimer.textContent = `🔥 分身: ${partnerTimeLeft}s`;
+}
+
+function deactivatePartner() {
+    hasPartner = false;
+    clearInterval(partnerIntervalId);
+    partner.classList.remove('active');
+    partnerShadow.classList.remove('active');
+    partnerTimer.classList.remove('active');
+    showNotice('💨 分身消散了...');
+}
+
+/* ================= 通知显示 ================= */
+function showNotice(text) {
+    switchNotice.textContent = text;
+    switchNotice.style.display = 'block';
+    switchNotice.style.animation = 'none';
+    switchNotice.offsetHeight; // 触发重绘
+    switchNotice.style.animation = 'fadeInOut 1.5s ease-in-out';
+    setTimeout(() => {
+        switchNotice.style.display = 'none';
+    }, 1500);
+}
+
+/* ================= 收集特效 ================= */
+function createCollectEffect(x, y, color = 'rgba(14,165,233,0.8)') {
+    const effect = document.createElement('div');
+    effect.style.cssText = `
+        position: absolute;
+        left: ${x}px;
+        top: ${y}px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: radial-gradient(circle, ${color}, transparent);
+        animation: collectPop 0.4s ease-out forwards;
+        pointer-events: none;
+    `;
+    gameArea.appendChild(effect);
+    setTimeout(() => effect.remove(), 400);
+}
+
+// 添加收集动画
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    @keyframes collectPop {
+        0%   { transform: scale(0.5); opacity: 1; }
+        100% { transform: scale(2); opacity: 0; }
+    }
+`;
+document.head.appendChild(styleSheet);
+
+/* ================= 死亡处理 ================= */
+function die() {
+    if (isDead || isGameOver) return;
+    isDead = true;
+    lives--;
+    updateLives();
+    stopItemSpawn();
+    
+    // 分身也消失
+    if (hasPartner) {
+        deactivatePartner();
+    }
+    
+    player.classList.add('dead');
+    playerY = 0;
+    velocityY = 0;
+    isJumping = false;
+    player.style.bottom = `${getPlayerBaseBottom()}px`;
+    playerShadow.style.width = '100px';
+    playerShadow.style.opacity = '1';
+    
+    setTimeout(() => {
+        player.classList.remove('dead');
+        
+        if (lives <= 0) {
+            isGameOver = true;
+            clearInterval(gameTimerId);
+            gameOverDiv.innerHTML = getGameOverMessage();
+            gameOverDiv.style.display = 'block';
+            handleGameFinished();
+        } else {
+            if (currentHero === 'naruto') {
+                setHero('sasuke');
+                playSound('switch');
+                showNotice('🔄 佐助登场！');
+            } else {
+                setHero('naruto');
+                playSound('switch');
+                showNotice('🔄 鸣人回归！');
+            }
+            
+            isDead = false;
+            startItemSpawn();
+        }
+    }, SWITCH_AFTER_DEATH);
+}
+
+/* ================= Supabase 全网排行榜 ================= */
+function isSupabaseConfigured() {
+    return SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 30;
+}
+
+function getSupabaseClient() {
+    if (!isSupabaseConfigured() || !window.supabase) return null;
+    if (!supabaseClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    return supabaseClient;
+}
+
+function setLeaderboardStatus(text) {
+    leaderboardStatus.textContent = text;
+}
+
+function renderLeaderboardRows(rows = []) {
+    if (!rows.length) {
+        leaderboardList.innerHTML = '<div class="leaderboard-row"><span class="leaderboard-rank">--</span><span class="leaderboard-name">暂无成绩</span><span class="leaderboard-score">0</span></div>';
+        return;
+    }
+    leaderboardList.innerHTML = rows.map((row, index) => `
+        <div class="leaderboard-row">
+            <span class="leaderboard-rank">#${index + 1}</span>
+            <span class="leaderboard-name">${escapeHtml(row.player_name || '匿名忍者')} · ${escapeHtml(row.difficulty_name || '')}</span>
+            <span class="leaderboard-score">${Number(row.score) || 0}</span>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>\"]/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;'
+    }[char]));
+}
+
+async function loadLeaderboard() {
+    const client = getSupabaseClient();
+    if (!client) {
+        setLeaderboardStatus('排行榜代码已加入：请先填写 Supabase URL 和 anon key。');
+        renderLeaderboardRows([]);
+        return;
+    }
+    setLeaderboardStatus('排行榜加载中...');
+    const { data, error } = await client
+        .from(SUPABASE_SCORE_TABLE)
+        .select('player_name, score, difficulty_name, created_at')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(LEADERBOARD_LIMIT);
+    if (error) {
+        setLeaderboardStatus(`排行榜加载失败：${error.message}`);
+        renderLeaderboardRows([]);
+        return;
+    }
+    setLeaderboardStatus('全网 Top 10');
+    renderLeaderboardRows(data || []);
+}
+
+function openLeaderboard(showSubmit = false) {
+    leaderboardOverlay.classList.remove('hidden');
+    leaderboardSubmitArea.classList.toggle('hidden', !showSubmit || !pendingScore || scoreSubmitted);
+    if (showSubmit && pendingScore && !scoreSubmitted) {
+        setLeaderboardStatus(`本局得分 ${pendingScore.score}，输入昵称后提交成绩。`);
+        playerNameInput.focus();
+    }
+    loadLeaderboard();
+}
+
+function closeLeaderboard() {
+    leaderboardOverlay.classList.add('hidden');
+}
+
+async function submitScore() {
+    const client = getSupabaseClient();
+    if (!client) {
+        setLeaderboardStatus('请先在代码中填写 Supabase URL 和 anon key，才能提交全网成绩。');
+        return;
+    }
+    if (!pendingScore || scoreSubmitted) return;
+    const playerName = playerNameInput.value.trim().slice(0, 12) || '匿名忍者';
+    submitScoreButton.disabled = true;
+    setLeaderboardStatus('成绩提交中...');
+    const { error } = await client.from(SUPABASE_SCORE_TABLE).insert({
+        player_name: playerName,
+        score: pendingScore.score,
+        difficulty_key: pendingScore.difficulty_key,
+        difficulty_name: pendingScore.difficulty_name
+    });
+    submitScoreButton.disabled = false;
+    if (error) {
+        setLeaderboardStatus(`提交失败：${error.message}`);
+        return;
+    }
+    scoreSubmitted = true;
+    leaderboardSubmitArea.classList.add('hidden');
+    setLeaderboardStatus('提交成功！已刷新排行榜。');
+    loadLeaderboard();
+}
+
+homeLeaderboardButton.addEventListener('click', () => openLeaderboard(false));
+closeLeaderboardButton.addEventListener('click', closeLeaderboard);
+refreshLeaderboardButton.addEventListener('click', loadLeaderboard);
+submitScoreButton.addEventListener('click', submitScore);
+
+/* ================= 启动游戏 ================= */
+requestAnimationFrame(gameLoop);
+// 点击“开始游戏”并选择难度后才开始生成道具
+
+/* ================= 窗口大小变化处理 ================= */
+window.addEventListener('resize', () => {
+    const currentPlayerWidth = getPlayerWidth();
+    const maxX = window.innerWidth - currentPlayerWidth / 2;
+    if (playerX > maxX) playerX = maxX;
+    if (playerX < currentPlayerWidth / 2) playerX = currentPlayerWidth / 2;
+});
+</script>
+</body>
+</html>
