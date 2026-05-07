@@ -430,7 +430,24 @@
             background: linear-gradient(135deg, #ffd700, #ff9a56);
             box-shadow: 0 7px 0 #9b4d12, 0 10px 18px rgba(0,0,0,0.35);
         }
+        #openLeaderboardAfterGameButton {
+            display: block;
+            margin: 18px auto 0;
+            padding: 12px 30px;
+            cursor: pointer;
+            border: 0;
+            border-radius: 999px;
+            color: #3d2914;
+            font-size: 20px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #fff2b8, #ffb86b);
+            box-shadow: 0 7px 0 #9b4d12, 0 10px 18px rgba(0,0,0,0.35);
+        }
         #restartButton:active {
+            transform: translateY(4px);
+            box-shadow: 0 3px 0 #9b4d12, 0 6px 12px rgba(0,0,0,0.3);
+        }
+        #openLeaderboardAfterGameButton:active {
             transform: translateY(4px);
             box-shadow: 0 3px 0 #9b4d12, 0 6px 12px rgba(0,0,0,0.3);
         }
@@ -1110,7 +1127,7 @@
             }
             #scoreBoard { left: 8px; top: 8px; }
             #livesBoard { left: 88px; top: 8px; }
-            #difficultyBoard { right: 8px; left: auto; top: 48px; min-width: 108px; }
+            #difficultyBoard { left: 8px; right: auto; top: 48px; min-width: 108px; max-width: calc(100vw - 112px); }
             #timeBoard { right: 8px; left: auto; top: 8px; min-width: 82px; }
             #scoreBoard::before {
                 width: 20px;
@@ -1196,6 +1213,10 @@
                 padding: 22px 18px;
                 max-height: calc(100dvh - 40px);
                 overflow-y: auto;
+            }
+            #openLeaderboardAfterGameButton,
+            #restartButton {
+                font-size: 17px;
             }
             body.competitive-active #gameOver {
                 font-size: 24px;
@@ -1351,7 +1372,7 @@
         <div class="menu-panel">
             <h2>选择修行难度</h2>
             <p>难度会决定初始速度、生成频率、后期成长和危险道具数量。</p>
-            <p style="color: #ffd700; font-weight: 600; margin-bottom: 18px;">⚠️ 只有忍者模式的成绩才会进入排行榜！</p>
+            <p style="color: #ffd700; font-weight: 600; margin-bottom: 18px;">⚠️ 只有忍者难度的成绩才会进入排行榜，单人/竞争模式均适用！</p>
             <div id="difficultyChoices" class="difficulty-grid"></div>
         </div>
     </div>
@@ -1853,25 +1874,48 @@ function startGameTimer() {
     }, 1000);
 }
 
-function getGameOverMessage(title = '感谢你帮助鸣佐') {
-    return `${title}<span>鸣佐only欢迎大家！<br>最终得分：${score}<br>可提交成绩进入全网排行榜</span><button id="restartButton" type="button">重新开始</button>`;
+function getLeaderboardEligibleScoreLabel() {
+    return currentDifficulty.name;
+}
+
+function preparePendingScoreForLeaderboard() {
+    if (currentDifficultyKey !== 'ninja') return false;
+    pendingScore = {
+        score,
+        difficulty_key: currentDifficultyKey,
+        difficulty_name: getLeaderboardEligibleScoreLabel()
+    };
+    scoreSubmitted = false;
+    return true;
+}
+
+function getScoreSubmitTip() {
+    if (currentDifficultyKey === 'ninja') return '忍者模式成绩可上传排行榜';
+    return '本局未进入排行榜（只有忍者难度可进入，单人/竞争模式均适用）';
+}
+
+function bindOpenLeaderboardAfterGameButton() {
+    const openButton = document.getElementById('openLeaderboardAfterGameButton');
+    if (openButton) {
+        openButton.addEventListener('click', () => {
+            openLeaderboard(true);
+        });
+    }
+}
+
+function showGameOverPanel(title = '感谢你帮助鸣佐', extraHtml = '') {
+    const submitTip = getScoreSubmitTip();
+    const leaderboardButton = preparePendingScoreForLeaderboard()
+        ? '<button id="openLeaderboardAfterGameButton" type="button">上传/查看排行榜</button>'
+        : '';
+    gameOverDiv.innerHTML = `${title}<span>鸣佐only欢迎大家！<br>${extraHtml}最终得分：${score}<br>${submitTip}</span>${leaderboardButton}<button id="restartButton" type="button">重新开始</button>`;
+    gameOverDiv.style.display = 'block';
+    bindOpenLeaderboardAfterGameButton();
+    bindRestartButton();
 }
 
 function handleGameFinished() {
-    // 只有忍者模式的成绩才能进入排行榜
-    if (currentDifficultyKey === 'ninja') {
-        pendingScore = {
-            score,
-            difficulty_key: currentDifficultyKey,
-            difficulty_name: currentDifficulty.name
-        };
-        scoreSubmitted = false;
-        openLeaderboard(true);
-    } else {
-        gameOverDiv.innerHTML = getGameOverMessage(`感谢你帮助鸣佐<br>本局未进入排行榜（只有忍者模式可进入）`);
-        gameOverDiv.style.display = 'block';
-        bindRestartButton();
-    }
+    showGameOverPanel('感谢你帮助鸣佐');
 }
 
 function bindRestartButton() {
@@ -1900,19 +1944,16 @@ function finishGameByTime() {
     playSound('start');
 
     if (isCompetitiveMode) {
+        const finishedDifficultyKey = currentDifficultyKey;
+        const finishedDifficultyName = currentDifficulty.name;
         const winner = score > opponentScore ? '你赢了！' : (score < opponentScore ? '对手赢了！' : '平手！');
-        gameOverDiv.innerHTML = `${winner}<span>最终得分：${score} vs ${opponentScore}</span><button id="restartButton" type="button">返回主页</button>`;
+        if (finishedDifficultyKey === 'ninja') currentDifficulty = { ...currentDifficulty, name: `竞争模式·${finishedDifficultyName}` };
         isCompetitiveMode = false;
         setCompetitiveLayoutActive(false);
         isPlayer1 = false;
         myRoomId = null;
+        showGameOverPanel(winner, `竞争比分：${score} vs ${opponentScore}<br>`);
     } else {
-        gameOverDiv.innerHTML = getGameOverMessage();
-    }
-
-    gameOverDiv.style.display = 'block';
-    bindRestartButton();
-    if (!isCompetitiveMode) {
         handleGameFinished();
     }
 }
@@ -2468,19 +2509,16 @@ function die() {
             clearInterval(competitiveUpdateInterval);
 
             if (isCompetitiveMode) {
+                const finishedDifficultyKey = currentDifficultyKey;
+                const finishedDifficultyName = currentDifficulty.name;
                 const winner = opponentScore > score ? '对手赢了！' : (opponentScore < score ? '你赢了！' : '平手！');
-                gameOverDiv.innerHTML = `${winner}<span>你的得分：${score} vs 对手：${opponentScore}</span><button id="restartButton" type="button">返回主页</button>`;
+                if (finishedDifficultyKey === 'ninja') currentDifficulty = { ...currentDifficulty, name: `竞争模式·${finishedDifficultyName}` };
                 isCompetitiveMode = false;
                 setCompetitiveLayoutActive(false);
                 isPlayer1 = false;
                 myRoomId = null;
+                showGameOverPanel(winner, `竞争比分：${score} vs ${opponentScore}<br>`);
             } else {
-                gameOverDiv.innerHTML = getGameOverMessage();
-            }
-
-            gameOverDiv.style.display = 'block';
-            bindRestartButton();
-            if (!isCompetitiveMode) {
                 handleGameFinished();
             }
         } else {
@@ -2617,7 +2655,7 @@ async function loadLeaderboard() {
     }
     setLeaderboardStatus('排行榜加载中...');
     const currentDeviceId = getDeviceId();
-    // 只加载忍者模式的成绩
+    // 只加载忍者难度的成绩（单人/竞争模式都用 ninja key）
     const { data, error } = await client
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score, difficulty_name, created_at')
@@ -2645,7 +2683,7 @@ async function loadLeaderboard() {
     }
 
     const statusSuffix = currentPlayerRow ? `，你当前第 ${currentPlayerRow.rank} 名` : '，提交成绩后会高亮显示你的排名';
-    setLeaderboardStatus(`忍者模式 Top 10${statusSuffix}`);
+    setLeaderboardStatus(`忍者难度 Top 10${statusSuffix}`);
     renderLeaderboardRows(displayRows);
 }
 
@@ -2679,9 +2717,9 @@ async function submitScore() {
     }
     if (!pendingScore || scoreSubmitted || submitScoreButton.disabled) return;
     
-    // 只允许忍者模式提交
+    // 只允许忍者难度提交（单人/竞争模式均适用）
     if (pendingScore.difficulty_key !== 'ninja') {
-        setLeaderboardStatus('只有忍者模式的成绩才能进入排行榜！');
+        setLeaderboardStatus('只有忍者难度的成绩才能进入排行榜！');
         return;
     }
     
