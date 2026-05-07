@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html>1
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -899,6 +899,91 @@
             50%      { transform: translateY(-10px); }
         }
         /* --------- 手机虚拟按键 & 自适应 --------- */
+        /* --------- 竞争模式：桌面/手机比例适配 --------- */
+        #competitiveHUD {
+            position: absolute;
+            top: clamp(12px, 2vh, 22px);
+            left: 50%;
+            width: min(56vw, 620px);
+            min-width: 360px;
+            transform: translateX(-50%);
+            z-index: 50;
+            display: none;
+            padding: 12px 14px;
+            border: 2px solid rgba(255, 255, 255, 0.28);
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.46), rgba(67, 37, 16, 0.42));
+            box-shadow: 0 10px 26px rgba(0,0,0,0.25), inset 0 0 14px rgba(255,255,255,0.08);
+            backdrop-filter: blur(4px);
+            pointer-events: none;
+        }
+        .competitive-score-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: clamp(10px, 2vw, 18px);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .competitive-score-card {
+            min-width: 0;
+            padding: 6px 10px;
+            overflow: hidden;
+            font-size: clamp(16px, 1.35vw, 20px);
+            font-weight: 900;
+            line-height: 1.2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.18);
+            text-shadow: 0 2px 5px rgba(0,0,0,0.55);
+        }
+        .competitive-score-card.mine {
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.36);
+        }
+        .competitive-score-card.opponent {
+            color: #9fb1ff;
+            border: 1px solid rgba(102, 126, 234, 0.42);
+        }
+        .competitive-progress-track {
+            height: clamp(18px, 2.2vh, 24px);
+            overflow: hidden;
+            position: relative;
+            border: 2px solid rgba(255,255,255,0.32);
+            border-radius: 999px;
+            background: linear-gradient(to right, rgba(255,215,0,0.2), rgba(102,126,234,0.2));
+        }
+        #competitiveProgressBar {
+            height: 100%;
+            width: 50%;
+            border-radius: 999px;
+            background: linear-gradient(to right, #ffd700, #ff9a56);
+            transition: width 0.3s ease;
+            min-width: 6px;
+        }
+        .competitive-room-code {
+            margin: clamp(16px, 3vw, 24px) 0;
+            text-align: center;
+            font-size: clamp(17px, 2vw, 20px);
+        }
+        .competitive-room-code strong {
+            display: inline-block;
+            margin-left: 6px;
+            color: #ffd700;
+            font-size: clamp(24px, 4vw, 34px);
+            letter-spacing: 0.12em;
+            line-height: 1;
+        }
+        .competitive-menu-actions {
+            margin-top: clamp(18px, 3vw, 24px);
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .competitive-menu-actions .leaderboard-button {
+            width: min(100%, 320px);
+            margin-left: auto;
+            margin-right: auto;
+        }
         #mobileControls {
             position: absolute;
             left: 0;
@@ -979,6 +1064,40 @@
                 animation: none;
                 filter: none !important;
             }
+            #competitiveHUD {
+                top: calc(8px + env(safe-area-inset-top));
+                width: min(94vw, 520px);
+                min-width: 0;
+                padding: 8px 10px 9px;
+                border-radius: 14px;
+                background: linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(67, 37, 16, 0.52));
+            }
+            .competitive-score-row {
+                gap: 7px;
+                margin-bottom: 7px;
+            }
+            .competitive-score-card {
+                padding: 4px 7px;
+                font-size: 13px;
+            }
+            .competitive-progress-track {
+                height: 14px;
+                border-width: 1px;
+            }
+            body.competitive-active #scoreBoard,
+            body.competitive-active #livesBoard {
+                top: 64px;
+            }
+            body.competitive-active #difficultyBoard,
+            body.competitive-active #timeBoard {
+                top: 104px;
+            }
+            body.competitive-active #partnerTimer {
+                top: 144px;
+            }
+            body.competitive-active #instructions {
+                bottom: max(104px, calc(var(--control-bottom, 84px) + var(--control-size, 72px) + 18px));
+            }
             #scoreBoard,
             #livesBoard,
             #difficultyBoard,
@@ -1016,7 +1135,7 @@
             }
             .menu-panel {
                 width: min(94vw, 520px);
-                max-height: 88dvh;
+                max-height: calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
                 overflow-y: auto;
                 padding: 24px 18px;
             }
@@ -1056,9 +1175,17 @@
                 grid-template-columns: 1fr;
                 gap: 10px;
             }
+            #createDifficultyChoices.difficulty-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
             .difficulty-button {
                 min-height: 82px;
                 padding: 12px;
+            }
+            #createDifficultyChoices .difficulty-button {
+                min-height: 74px;
+                padding: 10px 8px;
             }
             .difficulty-button strong {
                 font-size: 20px;
@@ -1067,6 +1194,15 @@
                 width: 88vw;
                 font-size: 30px;
                 padding: 22px 18px;
+                max-height: calc(100dvh - 40px);
+                overflow-y: auto;
+            }
+            body.competitive-active #gameOver {
+                font-size: 24px;
+                width: min(92vw, 460px);
+            }
+            body.competitive-active #gameOver span {
+                font-size: 15px;
             }
             #switchNotice {
                 width: 86vw;
@@ -1076,6 +1212,14 @@
         }
 
         @media (max-width: 420px) {
+            #competitiveHUD {
+                width: 96vw;
+                padding: 7px 8px;
+            }
+            .competitive-score-card {
+                font-size: 12px;
+                padding-inline: 5px;
+            }
             .mobile-button {
                 font-size: 26px;
             }
@@ -1112,6 +1256,16 @@
                 right: -24px;
             }
         }
+
+        @media (min-width: 769px) and (max-width: 1100px) {
+            body.competitive-active #competitiveHUD {
+                width: min(70vw, 620px);
+            }
+            body.competitive-active #scoreBoard,
+            body.competitive-active #livesBoard {
+                top: 86px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1127,13 +1281,24 @@
     <div id="player"></div>
     <div id="partner"></div>
     <div id="scoreBoard">0</div>
-    <div id="livesBoard">❤️ ❤️ ❤️</div>
+    <div id="livesBoard">❤️ ❤️ ❤️ ❤️</div>
     <div id="difficultyBoard">难度：未选择</div>
     <div id="timeBoard">⏱ 120s</div>
     <div id="partnerTimer">🔥 分身: 15s</div>
     <div id="instructions">⬅️ A/← 左移 | ➡️ D/→ 右移 | ⬆️ W/↑/空格 跳跃</div>
     <div id="switchNotice">🔄 佐助登场！</div>
     <div id="gameOver">游戏结束！<span>按 R 重新开始</span></div>
+
+    <!-- 竞争模式进度条 -->
+    <div id="competitiveHUD">
+        <div class="competitive-score-row">
+            <div class="competitive-score-card mine">你 - <span id="myCompScore">0</span></div>
+            <div class="competitive-score-card opponent">对手 - <span id="opponentCompScore">0</span></div>
+        </div>
+        <div class="competitive-progress-track">
+            <div id="competitiveProgressBar"></div>
+        </div>
+    </div>
 
     <div id="homeOverlay" class="overlay">
         <div class="menu-panel home-panel">
@@ -1146,6 +1311,7 @@
                 <div class="home-item tomato"></div>
             </div>
             <button id="startButton" class="menu-button">开始游戏</button>
+            <button id="multiplayerButton" class="menu-button" style="margin-top: 12px; background: linear-gradient(135deg, #667eea, #764ba2);">🔥 竞争模式</button>
             <div class="leaderboard-actions home-actions">
                 <button id="homeLeaderboardButton" class="leaderboard-button secondary" type="button">查看排行榜</button>
                 <button id="homeSettingsButton" class="leaderboard-button" type="button">手机按键设置</button>
@@ -1185,6 +1351,7 @@
         <div class="menu-panel">
             <h2>选择修行难度</h2>
             <p>难度会决定初始速度、生成频率、后期成长和危险道具数量。</p>
+            <p style="color: #ffd700; font-weight: 600; margin-bottom: 18px;">⚠️ 只有忍者模式的成绩才会进入排行榜！</p>
             <div id="difficultyChoices" class="difficulty-grid"></div>
         </div>
     </div>
@@ -1201,6 +1368,55 @@
             <div class="leaderboard-actions">
                 <button id="refreshLeaderboardButton" class="leaderboard-button" type="button">刷新排行榜</button>
                 <button id="closeLeaderboardButton" class="leaderboard-button secondary" type="button">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="multiplayerOverlay" class="overlay hidden">
+        <div class="menu-panel">
+            <h2>🔥 竞争模式</h2>
+            <p>邀请朋友进行实时竞争，看谁能得到更多分数！</p>
+            <div class="leaderboard-actions competitive-menu-actions">
+                <button id="createRoomButton" class="leaderboard-button" type="button">创建房间</button>
+                <button id="joinRoomButton" class="leaderboard-button" type="button" style="margin-top: 12px;">加入房间</button>
+                <button id="closeMultiplayerButton" class="leaderboard-button secondary" type="button" style="margin-top: 12px;">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createRoomOverlay" class="overlay hidden">
+        <div class="menu-panel">
+            <h2>创建竞争房间</h2>
+            <p>选择难度，系统会自动生成房间码。分享给朋友，他们就可以加入你的房间！</p>
+            <div id="createDifficultyChoices" class="difficulty-grid" style="margin-top: 18px;"></div>
+            <div class="leaderboard-actions" style="margin-top: 18px;">
+                <button id="backToMultiplayerFromCreateButton" class="leaderboard-button secondary" type="button">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="joinRoomOverlay" class="overlay hidden">
+        <div class="menu-panel">
+            <h2>加入竞争房间</h2>
+            <p>输入房间码加入朋友的房间，开始竞争！</p>
+            <div class="leaderboard-form" style="margin-top: 18px;">
+                <input id="roomCodeInput" type="text" maxlength="6" placeholder="输入房间码（6位数字）" autocomplete="off" style="text-transform: uppercase; letter-spacing: 0.1em;">
+                <button id="joinRoomConfirmButton" class="leaderboard-button" type="button">加入房间</button>
+            </div>
+            <p id="joinRoomStatus" style="margin-top: 12px; text-align: center; min-height: 20px; color: #fff3b0; font-size: 14px;"></p>
+            <div class="leaderboard-actions">
+                <button id="backToMultiplayerFromJoinButton" class="leaderboard-button secondary" type="button">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="multiplayerWaitingOverlay" class="overlay hidden">
+        <div class="menu-panel">
+            <h2>等待对手...</h2>
+            <p class="competitive-room-code">房间码：<strong id="displayRoomCode">123456</strong></p>
+            <p style="text-align: center; color: #fff3b0;">等待第二位玩家加入...</p>
+            <div class="leaderboard-actions">
+                <button id="cancelWaitingButton" class="leaderboard-button secondary" type="button">返回</button>
             </div>
         </div>
     </div>
@@ -1238,7 +1454,7 @@ const MAX_DESKTOP_ITEMS = 24;
 const PARTNER_DURATION = 15000;      // 分身持续时间 15秒
 const GAME_DURATION = 120;           // 所有难度统一倒计时 120 秒
 const SWITCH_AFTER_DEATH = 1500;
-const MAX_LIVES = 3;
+const MAX_LIVES = 4;
 
 const DIFFICULTIES = {
     easy: {
@@ -1314,6 +1530,20 @@ const SUPABASE_URL = 'https://ehxdouwiwakgdgaeypxn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_LmK51lqixwFKRc0bfufY7w_XtflWQx3';
 const SUPABASE_SCORE_TABLE = 'game_scores';
 const LEADERBOARD_LIMIT = 10;
+
+/* ================= Supabase 竞争模式配置 =================
+   需要在 Supabase 创建 competitive_rooms 表，结构如下：
+   - room_code (text, 主键)
+   - difficulty_key (text)
+   - difficulty_name (text)
+   - player1_id (text)
+   - player1_score (integer)
+   - player2_id (text)
+   - player2_score (integer)
+   - game_started (boolean)
+   - created_at (timestamp)
+   - started_at (timestamp)
+ */
 
 /* ================= 角色贴图 ================= */
 const IMG_NARUTO = './images/naruto.png';
@@ -1413,6 +1643,26 @@ const gameArea = document.getElementById('game');
 const homeOverlay = document.getElementById('homeOverlay');
 const difficultyOverlay = document.getElementById('difficultyOverlay');
 const startButton = document.getElementById('startButton');
+const multiplayerButton = document.getElementById('multiplayerButton');
+const multiplayerOverlay = document.getElementById('multiplayerOverlay');
+const createRoomButton = document.getElementById('createRoomButton');
+const joinRoomButton = document.getElementById('joinRoomButton');
+const closeMultiplayerButton = document.getElementById('closeMultiplayerButton');
+const createRoomOverlay = document.getElementById('createRoomOverlay');
+const joinRoomOverlay = document.getElementById('joinRoomOverlay');
+const roomCodeInput = document.getElementById('roomCodeInput');
+const joinRoomConfirmButton = document.getElementById('joinRoomConfirmButton');
+const joinRoomStatus = document.getElementById('joinRoomStatus');
+const backToMultiplayerFromCreateButton = document.getElementById('backToMultiplayerFromCreateButton');
+const backToMultiplayerFromJoinButton = document.getElementById('backToMultiplayerFromJoinButton');
+const multiplayerWaitingOverlay = document.getElementById('multiplayerWaitingOverlay');
+const displayRoomCode = document.getElementById('displayRoomCode');
+const cancelWaitingButton = document.getElementById('cancelWaitingButton');
+const createDifficultyChoices = document.getElementById('createDifficultyChoices');
+const competitiveHUD = document.getElementById('competitiveHUD');
+const myCompScore = document.getElementById('myCompScore');
+const opponentCompScore = document.getElementById('opponentCompScore');
+const competitiveProgressBar = document.getElementById('competitiveProgressBar');
 const difficultyChoices = document.getElementById('difficultyChoices');
 const mobileLeft = document.getElementById('mobileLeft');
 const mobileRight = document.getElementById('mobileRight');
@@ -1478,12 +1728,27 @@ let totalAssetCount = 0;
 let isInvincible = false;
 let invincibleTimerId = null;
 
+// 竞争模式状态
+let isCompetitiveMode = false;
+let myRoomId = null;
+let opponentScore = 0;
+let competitiveUpdateInterval = null;
+let competitiveCheckInterval = null;
+let isPlayer1 = false; // 标记当前玩家是否是房主
+
 /* ================= 初始化角色 ================= */
 function setHero(hero) {
     player.style.backgroundImage = `url("${hero === 'naruto' ? IMG_NARUTO : IMG_SASUKE}")`;
     currentHero = hero;
-    document.body.className = hero === 'naruto' ? 'theme-naruto' : 'theme-sasuke';
+    document.body.classList.toggle('theme-naruto', hero === 'naruto');
+    document.body.classList.toggle('theme-sasuke', hero === 'sasuke');
 }
+
+function setCompetitiveLayoutActive(active) {
+    document.body.classList.toggle('competitive-active', active);
+    competitiveHUD.style.display = active ? 'block' : 'none';
+}
+
 
 function setPartnerImage() {
     // 分身是另一个角色
@@ -1558,7 +1823,8 @@ function renderDifficultyChoices() {
         const button = document.createElement('button');
         button.className = 'difficulty-button';
         button.type = 'button';
-        button.innerHTML = `<strong>${config.icon} ${config.name}</strong><span>${config.desc}</span>`;
+        const leaderboardLabel = key === 'ninja' ? '<br>📊 可进入排行榜' : '';
+        button.innerHTML = `<strong>${config.icon} ${config.name}</strong><span>${config.desc}${leaderboardLabel}</span>`;
         button.addEventListener('click', () => startGame(key));
         difficultyChoices.appendChild(button);
     });
@@ -1592,19 +1858,34 @@ function getGameOverMessage(title = '感谢你帮助鸣佐') {
 }
 
 function handleGameFinished() {
-    pendingScore = {
-        score,
-        difficulty_key: currentDifficultyKey,
-        difficulty_name: currentDifficulty.name
-    };
-    scoreSubmitted = false;
-    openLeaderboard(true);
+    // 只有忍者模式的成绩才能进入排行榜
+    if (currentDifficultyKey === 'ninja') {
+        pendingScore = {
+            score,
+            difficulty_key: currentDifficultyKey,
+            difficulty_name: currentDifficulty.name
+        };
+        scoreSubmitted = false;
+        openLeaderboard(true);
+    } else {
+        gameOverDiv.innerHTML = getGameOverMessage(`感谢你帮助鸣佐<br>本局未进入排行榜（只有忍者模式可进入）`);
+        gameOverDiv.style.display = 'block';
+        bindRestartButton();
+    }
 }
 
 function bindRestartButton() {
     const restartButton = document.getElementById('restartButton');
     if (restartButton) {
-        restartButton.addEventListener('click', () => location.reload());
+        restartButton.addEventListener('click', () => {
+            clearInterval(competitiveUpdateInterval);
+            clearInterval(competitiveCheckInterval);
+            isCompetitiveMode = false;
+            setCompetitiveLayoutActive(false);
+            isPlayer1 = false;
+            myRoomId = null;
+            location.reload();
+        });
     }
 }
 
@@ -1612,14 +1893,28 @@ function finishGameByTime() {
     isGameOver = true;
     stopItemSpawn();
     clearInterval(gameTimerId);
+    clearInterval(competitiveUpdateInterval);
     if (hasPartner) {
         deactivatePartner();
     }
     playSound('start');
-    gameOverDiv.innerHTML = getGameOverMessage();
+
+    if (isCompetitiveMode) {
+        const winner = score > opponentScore ? '你赢了！' : (score < opponentScore ? '对手赢了！' : '平手！');
+        gameOverDiv.innerHTML = `${winner}<span>最终得分：${score} vs ${opponentScore}</span><button id="restartButton" type="button">返回主页</button>`;
+        isCompetitiveMode = false;
+        setCompetitiveLayoutActive(false);
+        isPlayer1 = false;
+        myRoomId = null;
+    } else {
+        gameOverDiv.innerHTML = getGameOverMessage();
+    }
+
     gameOverDiv.style.display = 'block';
     bindRestartButton();
-    handleGameFinished();
+    if (!isCompetitiveMode) {
+        handleGameFinished();
+    }
 }
 
 function startGame(difficultyKey) {
@@ -2034,6 +2329,9 @@ function collectItem(item, type, rect) {
         scoreBoard.textContent = score;
         const color = type === 'tomato' ? '#ff6347' : '#ffb6c1';
         createCollectEffect(rect.left, rect.top, color);
+        if (isCompetitiveMode) {
+            updateCompetitiveDisplay();
+        }
     }
 }
 
@@ -2167,19 +2465,35 @@ function die() {
         if (lives <= 0) {
             isGameOver = true;
             clearInterval(gameTimerId);
-            gameOverDiv.innerHTML = getGameOverMessage();
+            clearInterval(competitiveUpdateInterval);
+
+            if (isCompetitiveMode) {
+                const winner = opponentScore > score ? '对手赢了！' : (opponentScore < score ? '你赢了！' : '平手！');
+                gameOverDiv.innerHTML = `${winner}<span>你的得分：${score} vs 对手：${opponentScore}</span><button id="restartButton" type="button">返回主页</button>`;
+                isCompetitiveMode = false;
+                setCompetitiveLayoutActive(false);
+                isPlayer1 = false;
+                myRoomId = null;
+            } else {
+                gameOverDiv.innerHTML = getGameOverMessage();
+            }
+
             gameOverDiv.style.display = 'block';
             bindRestartButton();
-            handleGameFinished();
+            if (!isCompetitiveMode) {
+                handleGameFinished();
+            }
         } else {
-            if (currentHero === 'naruto') {
-                setHero('sasuke');
-                playSound('switch');
-                showNotice('🔄 佐助登场！');
-            } else {
-                setHero('naruto');
-                playSound('switch');
-                showNotice('🔄 鸣人回归！');
+            if (!isCompetitiveMode) {
+                if (currentHero === 'naruto') {
+                    setHero('sasuke');
+                    playSound('switch');
+                    showNotice('🔄 佐助登场！');
+                } else {
+                    setHero('naruto');
+                    playSound('switch');
+                    showNotice('🔄 鸣人回归！');
+                }
             }
             
             isDead = false;
@@ -2303,9 +2617,11 @@ async function loadLeaderboard() {
     }
     setLeaderboardStatus('排行榜加载中...');
     const currentDeviceId = getDeviceId();
+    // 只加载忍者模式的成绩
     const { data, error } = await client
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score, difficulty_name, created_at')
+        .eq('difficulty_key', 'ninja')
         .order('score', { ascending: false })
         .order('created_at', { ascending: true })
         .limit(1000);
@@ -2329,7 +2645,7 @@ async function loadLeaderboard() {
     }
 
     const statusSuffix = currentPlayerRow ? `，你当前第 ${currentPlayerRow.rank} 名` : '，提交成绩后会高亮显示你的排名';
-    setLeaderboardStatus(`全网 Top 10${statusSuffix}`);
+    setLeaderboardStatus(`忍者模式 Top 10${statusSuffix}`);
     renderLeaderboardRows(displayRows);
 }
 
@@ -2362,6 +2678,13 @@ async function submitScore() {
         return;
     }
     if (!pendingScore || scoreSubmitted || submitScoreButton.disabled) return;
+    
+    // 只允许忍者模式提交
+    if (pendingScore.difficulty_key !== 'ninja') {
+        setLeaderboardStatus('只有忍者模式的成绩才能进入排行榜！');
+        return;
+    }
+    
     let lockedPlayerName = getLockedPlayerName();
     if (!lockedPlayerName) {
         const inputName = playerNameInput.value.trim().slice(0, 12);
@@ -2389,6 +2712,7 @@ async function submitScore() {
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score')
         .eq('player_name', scorePayload.player_name)
+        .eq('difficulty_key', 'ninja')
         .limit(1);
 
     if (!findError && existingRows && existingRows.length > 0) {
@@ -2400,7 +2724,8 @@ async function submitScore() {
                 difficulty_name: scorePayload.difficulty_name,
                 created_at: scorePayload.created_at
             })
-            .eq('player_name', scorePayload.player_name);
+            .eq('player_name', scorePayload.player_name)
+            .eq('difficulty_key', 'ninja');
         error = updateResult.error;
     } else {
         const insertResult = await client
@@ -2424,6 +2749,294 @@ homeLeaderboardButton.addEventListener('click', () => openLeaderboard(false));
 closeLeaderboardButton.addEventListener('click', closeLeaderboard);
 refreshLeaderboardButton.addEventListener('click', loadLeaderboard);
 submitScoreButton.addEventListener('click', submitScore);
+
+/* ================= 竞争模式系统 ================= */
+const COMPETITIVE_TABLE = 'competitive_rooms';
+
+function generateRoomCode() {
+    return Math.random().toString(36).substr(2, 6).toUpperCase().replace(/[^0-9A-Z]/g, () => Math.floor(Math.random() * 10));
+}
+
+function renderCreateDifficultyChoices() {
+    createDifficultyChoices.innerHTML = '';
+    Object.entries(DIFFICULTIES).forEach(([key, config]) => {
+        const button = document.createElement('button');
+        button.className = 'difficulty-button';
+        button.type = 'button';
+        button.innerHTML = `<strong>${config.icon} ${config.name}</strong><span>${config.desc}</span>`;
+        button.addEventListener('click', () => createCompetitiveRoom(key));
+        createDifficultyChoices.appendChild(button);
+    });
+}
+
+async function createCompetitiveRoom(difficultyKey) {
+    const client = getSupabaseClient();
+    if (!client) {
+        showNotice('⚠️ Supabase 未配置');
+        return;
+    }
+
+    const roomCode = generateRoomCode();
+    const deviceId = getDeviceId();
+    const timestamp = new Date().toISOString();
+
+    const roomData = {
+        room_code: roomCode,
+        difficulty_key: difficultyKey,
+        difficulty_name: DIFFICULTIES[difficultyKey].name,
+        player1_id: deviceId,
+        player1_score: 0,
+        player2_id: null,
+        player2_score: 0,
+        player1_ready: false,
+        player2_ready: false,
+        game_started: false,
+        created_at: timestamp,
+        started_at: null
+    };
+
+    const { error } = await client.from(COMPETITIVE_TABLE).insert(roomData);
+    if (error) {
+        showNotice(`❌ 创建房间失败: ${error.message}`);
+        return;
+    }
+
+    myRoomId = roomCode;
+    currentDifficultyKey = difficultyKey;
+    currentDifficulty = DIFFICULTIES[difficultyKey];
+    isCompetitiveMode = true;
+    isPlayer1 = true; // 创建房间的是玩家1（鸣人）
+    
+    displayRoomCode.textContent = roomCode;
+    createRoomOverlay.classList.add('hidden');
+    multiplayerOverlay.classList.add('hidden');
+    multiplayerWaitingOverlay.classList.remove('hidden');
+    
+    startWaitingForOpponent();
+}
+
+async function joinCompetitiveRoom(roomCode) {
+    const client = getSupabaseClient();
+    if (!client) {
+        joinRoomStatus.textContent = '⚠️ Supabase 未配置';
+        return;
+    }
+
+    joinRoomStatus.textContent = '正在加入...';
+    joinRoomConfirmButton.disabled = true;
+
+    const { data, error } = await client
+        .from(COMPETITIVE_TABLE)
+        .select('*')
+        .eq('room_code', roomCode.toUpperCase())
+        .limit(1);
+
+    if (error || !data || data.length === 0) {
+        joinRoomStatus.textContent = '❌ 房间不存在或已关闭';
+        joinRoomConfirmButton.disabled = false;
+        return;
+    }
+
+    const room = data[0];
+    if (room.player2_id) {
+        joinRoomStatus.textContent = '❌ 房间已满';
+        joinRoomConfirmButton.disabled = false;
+        return;
+    }
+
+    const deviceId = getDeviceId();
+    if (room.player1_id === deviceId) {
+        joinRoomStatus.textContent = '❌ 不能加入自己创建的房间';
+        joinRoomConfirmButton.disabled = false;
+        return;
+    }
+
+    const { error: updateError } = await client
+        .from(COMPETITIVE_TABLE)
+        .update({ player2_id: deviceId, player2_score: 0 })
+        .eq('room_code', roomCode.toUpperCase());
+
+    if (updateError) {
+        joinRoomStatus.textContent = `❌ 加入失败: ${updateError.message}`;
+        joinRoomConfirmButton.disabled = false;
+        return;
+    }
+
+    myRoomId = roomCode.toUpperCase();
+    currentDifficultyKey = room.difficulty_key;
+    currentDifficulty = DIFFICULTIES[room.difficulty_key];
+    isCompetitiveMode = true;
+    isPlayer1 = false; // 加入房间的是玩家2（佐助）
+
+    joinRoomOverlay.classList.add('hidden');
+    multiplayerOverlay.classList.add('hidden');
+    multiplayerWaitingOverlay.classList.remove('hidden');
+    displayRoomCode.textContent = myRoomId;
+
+    startWaitingForOpponent();
+    joinRoomConfirmButton.disabled = false;
+}
+
+function startWaitingForOpponent() {
+    clearInterval(competitiveCheckInterval);
+    competitiveCheckInterval = setInterval(checkOpponentJoined, 1000);
+}
+
+async function checkOpponentJoined() {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { data } = await client
+        .from(COMPETITIVE_TABLE)
+        .select('*')
+        .eq('room_code', myRoomId)
+        .limit(1);
+
+    if (!data || data.length === 0) return;
+
+    const room = data[0];
+    const deviceId = getDeviceId();
+    const isPlayer1 = room.player1_id === deviceId;
+
+    if (room.player2_id && room.player1_id) {
+        clearInterval(competitiveCheckInterval);
+        multiplayerWaitingOverlay.classList.add('hidden');
+        startCompetitiveGame();
+    }
+}
+
+function startCompetitiveGame() {
+    isGameStarted = true;
+    isCompetitiveMode = true;
+    
+    // 根据角色设置不同的主角
+    if (isPlayer1) {
+        setHero('naruto'); // 房主是鸣人
+    } else {
+        setHero('sasuke'); // 加入者是佐助
+    }
+    
+    setCompetitiveLayoutActive(true);
+    scoreBoard.textContent = '0';
+    score = 0;
+    opponentScore = 0;
+    myCompScore.textContent = '0';
+    opponentCompScore.textContent = '0';
+    updateCompetitiveProgress();
+
+    playSound('start');
+    startBgm();
+    startGameTimer();
+    startItemSpawn();
+    startCompetitiveScoreSync();
+}
+
+function startCompetitiveScoreSync() {
+    clearInterval(competitiveUpdateInterval);
+    competitiveUpdateInterval = setInterval(async () => {
+        if (!isGameStarted || isGameOver || !myRoomId) {
+            clearInterval(competitiveUpdateInterval);
+            return;
+        }
+
+        const client = getSupabaseClient();
+        if (!client) return;
+
+        const { data: room } = await client
+            .from(COMPETITIVE_TABLE)
+            .select('*')
+            .eq('room_code', myRoomId)
+            .limit(1);
+
+        if (!room || room.length === 0) return;
+
+        const updateData = isPlayer1 
+            ? { player1_score: score }
+            : { player2_score: score };
+
+        await client
+            .from(COMPETITIVE_TABLE)
+            .update(updateData)
+            .eq('room_code', myRoomId);
+
+        // 同时获取对手的分数
+        if (isPlayer1) {
+            opponentScore = room[0].player2_score || 0;
+        } else {
+            opponentScore = room[0].player1_score || 0;
+        }
+
+        updateCompetitiveDisplay();
+    }, 1000);
+}
+
+function updateCompetitiveDisplay() {
+    myCompScore.textContent = score;
+    opponentCompScore.textContent = opponentScore;
+    updateCompetitiveProgress();
+}
+
+function updateCompetitiveProgress() {
+    const total = Math.max(score + opponentScore, 100);
+    const percentage = (score / total) * 100;
+    competitiveProgressBar.style.width = percentage + '%';
+}
+
+multiplayerButton.addEventListener('click', () => {
+    homeOverlay.classList.add('hidden');
+    multiplayerOverlay.classList.remove('hidden');
+});
+
+closeMultiplayerButton.addEventListener('click', () => {
+    multiplayerOverlay.classList.add('hidden');
+    homeOverlay.classList.remove('hidden');
+});
+
+createRoomButton.addEventListener('click', () => {
+    renderCreateDifficultyChoices();
+    multiplayerOverlay.classList.add('hidden');
+    createRoomOverlay.classList.remove('hidden');
+});
+
+joinRoomButton.addEventListener('click', () => {
+    multiplayerOverlay.classList.add('hidden');
+    joinRoomOverlay.classList.remove('hidden');
+    roomCodeInput.value = '';
+    joinRoomStatus.textContent = '';
+});
+
+backToMultiplayerFromCreateButton.addEventListener('click', () => {
+    createRoomOverlay.classList.add('hidden');
+    multiplayerOverlay.classList.remove('hidden');
+});
+
+backToMultiplayerFromJoinButton.addEventListener('click', () => {
+    joinRoomOverlay.classList.add('hidden');
+    multiplayerOverlay.classList.remove('hidden');
+});
+
+joinRoomConfirmButton.addEventListener('click', () => {
+    const roomCode = roomCodeInput.value.trim().toUpperCase();
+    if (roomCode.length !== 6 || !/^[0-9A-Z]+$/.test(roomCode)) {
+        joinRoomStatus.textContent = '❌ 房间码格式不正确';
+        return;
+    }
+    joinCompetitiveRoom(roomCode);
+});
+
+cancelWaitingButton.addEventListener('click', () => {
+    clearInterval(competitiveCheckInterval);
+    myRoomId = null;
+    isCompetitiveMode = false;
+    setCompetitiveLayoutActive(false);
+    isPlayer1 = false;
+    multiplayerWaitingOverlay.classList.add('hidden');
+    multiplayerOverlay.classList.remove('hidden');
+});
+
+roomCodeInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') joinRoomConfirmButton.click();
+});
 
 /* ================= 启动游戏 ================= */
 requestAnimationFrame(gameLoop);
