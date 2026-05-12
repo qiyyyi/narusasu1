@@ -465,7 +465,7 @@
         .overlay {
             position: absolute;
             inset: 0;
-            z-index: 100;
+            z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -487,6 +487,13 @@
             border: 4px solid #ffd700;
             border-radius: 24px;
             box-shadow: 0 0 35px rgba(255, 166, 0, 0.45), inset 0 0 20px rgba(255,255,255,0.08);
+        }
+        .overlay .menu-panel {
+            position: relative;
+            z-index: 2;
+        }
+        #leaderboardOverlay {
+            background: radial-gradient(circle at center, rgba(255, 214, 102, 0.12), rgba(0, 0, 0, 0.94));
         }
         .home-panel {
             position: relative;
@@ -1106,14 +1113,18 @@
                 background-position: center top;
             }
             #ground {
-                bottom: var(--mobile-ground-bottom, 186px);
-                height: 104px;
+                bottom: 0;
+                height: calc(var(--mobile-ground-bottom, 186px) + 104px);
             }
             #grassLayer {
+                top: 0;
                 height: 60px;
             }
             #dirtLayer {
-                height: 52px;
+                top: 52px;
+                bottom: 0;
+                height: auto;
+                min-height: 52px;
             }
             #player,
             #partner {
