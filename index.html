@@ -468,7 +468,7 @@
         .overlay {
             position: fixed;
             inset: 0;
-            z-index: 5000;
+            z-index: 2147483000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -496,8 +496,27 @@
             z-index: 2;
         }
         #leaderboardOverlay {
-            z-index: 6000;
-            background: radial-gradient(circle at center, rgba(255, 214, 102, 0.12), rgba(0, 0, 0, 0.94));
+            z-index: 2147483600;
+            background: radial-gradient(circle at center, rgba(255, 214, 102, 0.08), rgba(0, 0, 0, 0.98));
+        }
+        body.leaderboard-open #ground,
+        body.leaderboard-open #grassLayer,
+        body.leaderboard-open #dirtLayer,
+        body.leaderboard-open #player,
+        body.leaderboard-open #partner,
+        body.leaderboard-open #playerShadow,
+        body.leaderboard-open #partnerShadow,
+        body.leaderboard-open .item,
+        body.leaderboard-open #mobileControls,
+        body.leaderboard-open #competitiveHUD,
+        body.leaderboard-open #partnerTimer,
+        body.leaderboard-open #scoreBoard,
+        body.leaderboard-open #livesBoard,
+        body.leaderboard-open #difficultyBoard,
+        body.leaderboard-open #timeBoard,
+        body.leaderboard-open #instructions,
+        body.leaderboard-open #switchNotice {
+            visibility: hidden !important;
         }
         .home-panel {
             position: relative;
@@ -2919,6 +2938,7 @@ async function loadLeaderboard() {
 }
 
 function openLeaderboard(showSubmit = false) {
+    document.body.classList.add('leaderboard-open');
     leaderboardOverlay.classList.remove('hidden');
     const lockedName = getLockedPlayerName();
     const shouldShowNameInput = showSubmit && pendingScore && !scoreSubmitted && !lockedName;
@@ -2940,6 +2960,7 @@ function openLeaderboard(showSubmit = false) {
 
 function closeLeaderboard() {
     leaderboardOverlay.classList.add('hidden');
+    document.body.classList.remove('leaderboard-open');
 }
 
 async function submitScore() {
