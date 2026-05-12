@@ -2711,7 +2711,7 @@ function renderLeaderboardRows(rows = []) {
             return '<div class="leaderboard-divider">··· 我的排名 ···</div>';
         }
         const isCurrentPlayer = row.isCurrentPlayer || isCurrentLeaderboardPlayer(row);
-        const playerId = getPlayerDeviceId(row.player_name || '') || 'unknown';
+        const playerId = getDisplayPlayerDeviceId(row.player_name || '') || 'unknown';
         const displayName = `${escapeHtml(getDisplayPlayerName(row.player_name || '匿名忍者'))}${isCurrentPlayer ? '（我）' : ''} · ${escapeHtml(row.difficulty_name || '')}`;
         return `
             <div class="leaderboard-row${isCurrentPlayer ? ' current-player' : ''}">
@@ -2728,7 +2728,12 @@ function getDisplayPlayerName(value) {
 }
 
 function getPlayerDeviceId(value) {
-    return String(value).split('#')[1] || '';
+    const idPart = String(value).split('#')[1] || '';
+    return idPart.split('-')[0] || '';
+}
+
+function getDisplayPlayerDeviceId(value) {
+    return String(value).split('#')[1] || getPlayerDeviceId(value);
 }
 
 function getDeviceId() {
@@ -2759,6 +2764,16 @@ function escapeHtml(value) {
     }[char]));
 }
 
+function withTimeout(promise, timeoutMs = 12000, timeoutMessage = '请求超时，请检查网络后重试') {
+    let timeoutId = null;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+}
+
 async function loadLeaderboard() {
     const client = getSupabaseClient();
     if (!client) {
@@ -2766,38 +2781,43 @@ async function loadLeaderboard() {
         renderLeaderboardRows([]);
         return;
     }
-    setLeaderboardStatus('排行榜加载中...');
-    const currentDeviceId = getDeviceId();
-    // 只加载忍者难度的成绩（单人/竞争模式都用 ninja key）
-    const { data, error } = await client
-        .from(SUPABASE_SCORE_TABLE)
-        .select('player_name, score, difficulty_name, created_at')
-        .eq('difficulty_key', 'ninja')
-        .order('score', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(1000);
-    if (error) {
+    try {
+        setLeaderboardStatus('排行榜加载中...');
+        const currentDeviceId = getDeviceId();
+        // 只加载忍者难度的成绩（单人/竞争模式都用 ninja key）
+        const { data, error } = await withTimeout(client
+            .from(SUPABASE_SCORE_TABLE)
+            .select('player_name, score, difficulty_name, created_at')
+            .eq('difficulty_key', 'ninja')
+            .order('score', { ascending: false })
+            .order('created_at', { ascending: true })
+            .limit(1000));
+        if (error) {
+            setLeaderboardStatus(`排行榜加载失败：${error.message}`);
+            renderLeaderboardRows([]);
+            return;
+        }
+
+        const rankedRows = (data || []).map((row, index) => ({
+            ...row,
+            rank: index + 1,
+            isCurrentPlayer: Boolean(currentDeviceId && getPlayerDeviceId(row.player_name) === currentDeviceId)
+        }));
+        const topRows = rankedRows.slice(0, LEADERBOARD_LIMIT);
+        const currentPlayerRow = rankedRows.find(row => row.isCurrentPlayer);
+        const displayRows = [...topRows];
+
+        if (currentPlayerRow && currentPlayerRow.rank > LEADERBOARD_LIMIT) {
+            displayRows.push({ type: 'divider' }, currentPlayerRow);
+        }
+
+        const statusSuffix = currentPlayerRow ? `，你当前第 ${currentPlayerRow.rank} 名` : '，提交成绩后会高亮显示你的排名';
+        setLeaderboardStatus(`忍者难度 Top 10${statusSuffix}`);
+        renderLeaderboardRows(displayRows);
+    } catch (error) {
         setLeaderboardStatus(`排行榜加载失败：${error.message}`);
         renderLeaderboardRows([]);
-        return;
     }
-
-    const rankedRows = (data || []).map((row, index) => ({
-        ...row,
-        rank: index + 1,
-        isCurrentPlayer: Boolean(currentDeviceId && getPlayerDeviceId(row.player_name) === currentDeviceId)
-    }));
-    const topRows = rankedRows.slice(0, LEADERBOARD_LIMIT);
-    const currentPlayerRow = rankedRows.find(row => row.isCurrentPlayer);
-    const displayRows = [...topRows];
-
-    if (currentPlayerRow && currentPlayerRow.rank > LEADERBOARD_LIMIT) {
-        displayRows.push({ type: 'divider' }, currentPlayerRow);
-    }
-
-    const statusSuffix = currentPlayerRow ? `，你当前第 ${currentPlayerRow.rank} 名` : '，提交成绩后会高亮显示你的排名';
-    setLeaderboardStatus(`忍者难度 Top 10${statusSuffix}`);
-    renderLeaderboardRows(displayRows);
 }
 
 function openLeaderboard(showSubmit = false) {
@@ -2815,7 +2835,9 @@ function openLeaderboard(showSubmit = false) {
             playerNameInput.focus();
         }
     }
-    loadLeaderboard();
+    if (!(showSubmit && pendingScore && !scoreSubmitted)) {
+        loadLeaderboard();
+    }
 }
 
 function closeLeaderboard() {
@@ -2859,32 +2881,20 @@ async function submitScore() {
     };
 
     let error = null;
-    const { data: existingRows, error: findError } = await client
-        .from(SUPABASE_SCORE_TABLE)
-        .select('player_name, score')
-        .eq('player_name', scorePayload.player_name)
-        .limit(1);
+    try {
+        const { data: existingRows, error: findError } = await withTimeout(client
+            .from(SUPABASE_SCORE_TABLE)
+            .select('score')
+            .eq('player_name', lockedPlayerName)
+            .limit(1));
 
-    if (!findError && existingRows && existingRows.length > 0) {
-        const bestScore = Math.max(Number(existingRows[0].score) || 0, scorePayload.score);
-        const updateResult = await client
-            .from(SUPABASE_SCORE_TABLE)
-            .update({
-                score: bestScore,
-                difficulty_key: scorePayload.difficulty_key,
-                difficulty_name: scorePayload.difficulty_name,
-                created_at: scorePayload.created_at
-            })
-            .eq('player_name', scorePayload.player_name)
-            .select('player_name');
-        error = updateResult.error;
-    } else {
-        const insertResult = await client
-            .from(SUPABASE_SCORE_TABLE)
-            .insert(scorePayload);
-        error = insertResult.error;
-        if (isDuplicateNameError(error)) {
-            const fallbackUpdate = await client
+        if (findError) throw findError;
+
+        const oldScore = existingRows && existingRows.length ? Number(existingRows[0].score) || 0 : 0;
+        scorePayload.score = Math.max(oldScore, pendingScore.score);
+
+        if (existingRows && existingRows.length) {
+            const updateResult = await withTimeout(client
                 .from(SUPABASE_SCORE_TABLE)
                 .update({
                     score: scorePayload.score,
@@ -2892,10 +2902,23 @@ async function submitScore() {
                     difficulty_name: scorePayload.difficulty_name,
                     created_at: scorePayload.created_at
                 })
-                .eq('player_name', scorePayload.player_name)
-                .select('player_name');
-            error = fallbackUpdate.error;
+                .eq('player_name', lockedPlayerName));
+            error = updateResult.error;
+        } else {
+            const insertResult = await withTimeout(client
+                .from(SUPABASE_SCORE_TABLE)
+                .insert(scorePayload));
+            error = insertResult.error;
         }
+
+        if (isDuplicateNameError(error)) {
+            const upsertResult = await withTimeout(client
+                .from(SUPABASE_SCORE_TABLE)
+                .upsert(scorePayload, { onConflict: 'player_name' }));
+            error = upsertResult.error;
+        }
+    } catch (requestError) {
+        error = requestError;
     }
 
     submitScoreButton.disabled = false;
@@ -2905,7 +2928,7 @@ async function submitScore() {
     }
     scoreSubmitted = true;
     leaderboardSubmitArea.classList.add('hidden');
-    setLeaderboardStatus(`提交成功！此设备名称已永久锁定为 ${lockedPlayerName}。`);
+    setLeaderboardStatus(`提交成功！此设备名称已永久锁定为 ${lockedPlayerName}，本次成绩已上传。`);
     loadLeaderboard();
 }
 
