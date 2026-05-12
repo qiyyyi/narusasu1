@@ -499,24 +499,24 @@
             z-index: 2147483600;
             background: radial-gradient(circle at center, rgba(255, 214, 102, 0.08), rgba(0, 0, 0, 0.98));
         }
-        body.leaderboard-open #ground,
-        body.leaderboard-open #grassLayer,
-        body.leaderboard-open #dirtLayer,
-        body.leaderboard-open #player,
-        body.leaderboard-open #partner,
-        body.leaderboard-open #playerShadow,
-        body.leaderboard-open #partnerShadow,
-        body.leaderboard-open .item,
-        body.leaderboard-open #mobileControls,
-        body.leaderboard-open #competitiveHUD,
-        body.leaderboard-open #partnerTimer,
-        body.leaderboard-open #scoreBoard,
-        body.leaderboard-open #livesBoard,
-        body.leaderboard-open #difficultyBoard,
-        body.leaderboard-open #timeBoard,
-        body.leaderboard-open #instructions,
-        body.leaderboard-open #switchNotice {
+        body.leaderboard-open #game > :not(#leaderboardOverlay) {
             visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        body.leaderboard-open #leaderboardOverlay,
+        body.leaderboard-open #leaderboardOverlay * {
+            visibility: visible !important;
+        }
+        body.leaderboard-open #leaderboardOverlay {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            opacity: 1 !important;
+            transform: none !important;
+            pointer-events: auto !important;
+            overflow-y: auto;
+            isolation: isolate;
         }
         .home-panel {
             position: relative;
@@ -1140,26 +1140,40 @@
                 height: calc(var(--mobile-ground-bottom, 186px) + 104px);
                 z-index: 3;
                 overflow: hidden;
-                background: #8b6914;
+                background: transparent !important;
+            }
+            #ground::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 60px;
+                bottom: 0;
+                z-index: 0;
+                pointer-events: none;
             }
             #grassLayer {
                 top: 0;
                 height: 60px;
+                z-index: 2;
             }
             #dirtLayer {
-                top: 58px;
+                top: 60px;
                 bottom: 0;
                 height: auto;
                 min-height: 52px;
+                z-index: 1;
             }
-            body.theme-naruto #ground {
+            body.theme-naruto #ground::before,
+            body.theme-naruto #dirtLayer {
                 background: linear-gradient(to top,
                     #5d4023 0%,
                     #6f4b22 45%,
                     #8b6914 78%,
                     #a67c00 100%);
             }
-            body.theme-sasuke #ground {
+            body.theme-sasuke #ground::before,
+            body.theme-sasuke #dirtLayer {
                 background: linear-gradient(to top,
                     #2a1a0a 0%,
                     #32220f 45%,
@@ -1621,6 +1635,8 @@
     </div>
 </div>
 
+<div id="portalRoot"></div>
+
 <script>
 /* ================= 配置 ================= */
 const PLAYER_WIDTH = 160;
@@ -1882,6 +1898,7 @@ const playerNameInput = document.getElementById('playerNameInput');
 const leaderboardList = document.getElementById('leaderboardList');
 const leaderboardStatus = document.getElementById('leaderboardStatus');
 const leaderboardSubmitArea = document.getElementById('leaderboardSubmitArea');
+const portalRoot = document.getElementById('portalRoot');
 
 /* ================= 游戏状态 ================= */
 let playerX = window.innerWidth / 2;
@@ -2939,6 +2956,9 @@ async function loadLeaderboard() {
 
 function openLeaderboard(showSubmit = false) {
     document.body.classList.add('leaderboard-open');
+    if (leaderboardOverlay.parentElement !== document.body) {
+        document.body.appendChild(leaderboardOverlay);
+    }
     leaderboardOverlay.classList.remove('hidden');
     const lockedName = getLockedPlayerName();
     const shouldShowNameInput = showSubmit && pendingScore && !scoreSubmitted && !lockedName;
@@ -2961,6 +2981,9 @@ function openLeaderboard(showSubmit = false) {
 function closeLeaderboard() {
     leaderboardOverlay.classList.add('hidden');
     document.body.classList.remove('leaderboard-open');
+    if (portalRoot && leaderboardOverlay.parentElement !== portalRoot) {
+        portalRoot.appendChild(leaderboardOverlay);
+    }
 }
 
 async function submitScore() {
