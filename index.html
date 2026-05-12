@@ -1095,8 +1095,25 @@
         }
 
         @media (max-width: 768px) {
+            body.theme-naruto,
+            body.theme-sasuke {
+                background-size: 100% calc(100% + var(--mobile-extra-sky, 80px));
+                background-position: center top;
+            }
             #game {
                 height: 100dvh;
+                background-size: 100% calc(100% + var(--mobile-extra-sky, 80px));
+                background-position: center top;
+            }
+            #ground {
+                bottom: var(--mobile-ground-bottom, 186px);
+                height: 104px;
+            }
+            #grassLayer {
+                height: 60px;
+            }
+            #dirtLayer {
+                height: 52px;
             }
             #player,
             #partner {
@@ -1111,7 +1128,7 @@
             }
             #playerShadow,
             #partnerShadow {
-                bottom: 40px;
+                bottom: calc(var(--mobile-ground-bottom, 186px) + 40px);
                 width: 50px;
                 display: none !important;
             }
@@ -1567,6 +1584,8 @@ const JUMP_FORCE = 10.5;             // 小跳跃力度
 const GRAVITY = 0.55;                // 重力
 const ITEM_SIZE = 55;
 const ITEM_MOBILE_SIZE = 34;
+const MOBILE_GROUND_TO_CONTROL_GAP = 16;
+const MOBILE_SCENE_EXTRA_SKY = 80;
 const BOMB_SIZE = 60;
 const BOMB_MOBILE_SIZE = 38;
 const SPECIAL_SIZE = 70;
@@ -2121,7 +2140,8 @@ function getPlayerWidth() {
 }
 
 function getPlayerBaseBottom() {
-    return isMobileView() ? PLAYER_MOBILE_BASE_BOTTOM : PLAYER_BASE_BOTTOM;
+    if (!isMobileView()) return PLAYER_BASE_BOTTOM;
+    return getMobileGroundBottom() + PLAYER_MOBILE_BASE_BOTTOM;
 }
 
 function getItemSize(type) {
@@ -2182,16 +2202,39 @@ function syncControlSettingInputs() {
 }
 
 function applyMobileControlSettings() {
+    const mobileGroundBottom = getMobileGroundBottom();
     mobileControls.style.setProperty('--control-size', `${mobileControlSettings.size}px`);
     mobileControls.style.setProperty('--control-bottom', `${mobileControlSettings.bottom}px`);
     mobileControls.style.setProperty('--control-side', `${mobileControlSettings.side}px`);
     mobileControls.style.setProperty('--control-gap', `${mobileControlSettings.gap}px`);
+    document.documentElement.style.setProperty('--mobile-ground-bottom', `${mobileGroundBottom}px`);
+    document.documentElement.style.setProperty('--mobile-extra-sky', `${getMobileExtraSky()}px`);
     if (settingsPreviewControls) {
         settingsPreviewControls.style.setProperty('--preview-control-size', `${Math.max(42, mobileControlSettings.size - 10)}px`);
         settingsPreviewControls.style.setProperty('--preview-control-bottom', `${Math.max(12, Math.round(mobileControlSettings.bottom * 0.42))}px`);
         settingsPreviewControls.style.setProperty('--preview-control-side', `${mobileControlSettings.side}px`);
         settingsPreviewControls.style.setProperty('--preview-control-gap', `${mobileControlSettings.gap}px`);
     }
+}
+
+function getMobileControlsTopClearance() {
+    const buttonHeight = mobileControlSettings.size + 10;
+    return mobileControlSettings.bottom + buttonHeight;
+}
+
+function getMobileGroundBottom() {
+    if (!isMobileView()) return 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 720;
+    const desiredBottom = getMobileControlsTopClearance() + MOBILE_GROUND_TO_CONTROL_GAP;
+    // 小屏手机也尽量保留可玩的天空区域，避免地面被顶得过高。
+    const maxBottom = Math.max(128, Math.round(viewportHeight * 0.34));
+    return Math.min(desiredBottom, maxBottom);
+}
+
+function getMobileExtraSky() {
+    if (!isMobileView()) return 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 720;
+    return Math.round(Math.min(140, Math.max(MOBILE_SCENE_EXTRA_SKY, viewportHeight * 0.12)));
 }
 
 function updateMobileControlSetting(key, value) {
@@ -2733,7 +2776,7 @@ function getPlayerDeviceId(value) {
 }
 
 function getDisplayPlayerDeviceId(value) {
-    return String(value).split('#')[1] || getPlayerDeviceId(value);
+    return getPlayerDeviceId(value) || 'unknown';
 }
 
 function getDeviceId() {
@@ -2748,6 +2791,10 @@ function getDeviceId() {
 
 function makeDevicePlayerName(baseName) {
     return `${baseName}#${getDeviceId()}`;
+}
+
+function makeScoreSubmissionPlayerName(lockedPlayerName) {
+    return `${lockedPlayerName}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 }
 
 function isDuplicateNameError(error) {
@@ -2798,7 +2845,26 @@ async function loadLeaderboard() {
             return;
         }
 
-        const rankedRows = (data || []).map((row, index) => ({
+        // 同一设备可能有多次提交记录（昵称#设备ID-提交号）。
+        // 排行榜按设备合并，只取每个设备的最高分，避免二次上传后旧记录压住新记录。
+        const bestRowsByDevice = new Map();
+        (data || []).forEach(row => {
+            const deviceId = getPlayerDeviceId(row.player_name || '') || row.player_name || '';
+            const scoreValue = Number(row.score) || 0;
+            const existed = bestRowsByDevice.get(deviceId);
+            if (!existed || scoreValue > (Number(existed.score) || 0) ||
+                (scoreValue === (Number(existed.score) || 0) && new Date(row.created_at || 0) < new Date(existed.created_at || 0))) {
+                bestRowsByDevice.set(deviceId, row);
+            }
+        });
+
+        const rankedRows = Array.from(bestRowsByDevice.values())
+            .sort((a, b) => {
+                const scoreDiff = (Number(b.score) || 0) - (Number(a.score) || 0);
+                if (scoreDiff !== 0) return scoreDiff;
+                return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+            })
+            .map((row, index) => ({
             ...row,
             rank: index + 1,
             isCurrentPlayer: Boolean(currentDeviceId && getPlayerDeviceId(row.player_name) === currentDeviceId)
@@ -2873,7 +2939,9 @@ async function submitScore() {
     setLeaderboardStatus(`成绩提交中... 已锁定为 ${lockedPlayerName}`);
 
     const scorePayload = {
-        player_name: lockedPlayerName,
+        // 使用唯一提交名插入新纪录，避免 Supabase 禁止 UPDATE 或 player_name 唯一约束导致二次提交不生效。
+        // 排行榜加载时会按 #设备ID 合并多次提交，只展示该设备最高分。
+        player_name: makeScoreSubmissionPlayerName(lockedPlayerName),
         score: pendingScore.score,
         difficulty_key: pendingScore.difficulty_key,
         difficulty_name: pendingScore.difficulty_name,
@@ -2882,40 +2950,17 @@ async function submitScore() {
 
     let error = null;
     try {
-        const { data: existingRows, error: findError } = await withTimeout(client
+        const insertResult = await withTimeout(client
             .from(SUPABASE_SCORE_TABLE)
-            .select('score')
-            .eq('player_name', lockedPlayerName)
-            .limit(1));
-
-        if (findError) throw findError;
-
-        const oldScore = existingRows && existingRows.length ? Number(existingRows[0].score) || 0 : 0;
-        scorePayload.score = Math.max(oldScore, pendingScore.score);
-
-        if (existingRows && existingRows.length) {
-            const updateResult = await withTimeout(client
-                .from(SUPABASE_SCORE_TABLE)
-                .update({
-                    score: scorePayload.score,
-                    difficulty_key: scorePayload.difficulty_key,
-                    difficulty_name: scorePayload.difficulty_name,
-                    created_at: scorePayload.created_at
-                })
-                .eq('player_name', lockedPlayerName));
-            error = updateResult.error;
-        } else {
-            const insertResult = await withTimeout(client
-                .from(SUPABASE_SCORE_TABLE)
-                .insert(scorePayload));
-            error = insertResult.error;
-        }
+            .insert(scorePayload));
+        error = insertResult.error;
 
         if (isDuplicateNameError(error)) {
-            const upsertResult = await withTimeout(client
+            scorePayload.player_name = makeScoreSubmissionPlayerName(lockedPlayerName);
+            const retryResult = await withTimeout(client
                 .from(SUPABASE_SCORE_TABLE)
-                .upsert(scorePayload, { onConflict: 'player_name' }));
-            error = upsertResult.error;
+                .insert(scorePayload));
+            error = retryResult.error;
         }
     } catch (requestError) {
         error = requestError;
@@ -2928,7 +2973,7 @@ async function submitScore() {
     }
     scoreSubmitted = true;
     leaderboardSubmitArea.classList.add('hidden');
-    setLeaderboardStatus(`提交成功！此设备名称已永久锁定为 ${lockedPlayerName}，本次成绩已上传。`);
+    setLeaderboardStatus(`提交成功！此设备名称已永久锁定为 ${lockedPlayerName}，排行榜将显示该设备最高分。`);
     loadLeaderboard();
 }
 
@@ -3229,6 +3274,7 @@ requestAnimationFrame(gameLoop);
 
 /* ================= 窗口大小变化处理 ================= */
 window.addEventListener('resize', () => {
+    applyMobileControlSettings();
     const currentPlayerWidth = getPlayerWidth();
     const maxX = window.innerWidth - currentPlayerWidth / 2;
     if (playerX > maxX) playerX = maxX;
