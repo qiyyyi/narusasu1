@@ -1136,21 +1136,11 @@
                 background-position: center top;
             }
             #ground {
-                bottom: 0;
-                height: calc(var(--mobile-ground-bottom, 186px) + 104px);
+                bottom: var(--mobile-ground-bottom, 186px);
+                height: 104px;
                 z-index: 3;
-                overflow: hidden;
+                overflow: visible;
                 background: transparent !important;
-            }
-            #ground::before {
-                content: '';
-                position: absolute;
-                left: 0;
-                right: 0;
-                top: 60px;
-                bottom: 0;
-                z-index: 0;
-                pointer-events: none;
             }
             #grassLayer {
                 top: 0;
@@ -1159,12 +1149,10 @@
             }
             #dirtLayer {
                 top: 60px;
-                bottom: 0;
-                height: auto;
-                min-height: 52px;
+                bottom: auto;
+                height: 44px;
                 z-index: 1;
             }
-            body.theme-naruto #ground::before,
             body.theme-naruto #dirtLayer {
                 background: linear-gradient(to top,
                     #5d4023 0%,
@@ -1172,7 +1160,6 @@
                     #8b6914 78%,
                     #a67c00 100%);
             }
-            body.theme-sasuke #ground::before,
             body.theme-sasuke #dirtLayer {
                 background: linear-gradient(to top,
                     #2a1a0a 0%,
