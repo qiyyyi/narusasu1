@@ -24,8 +24,17 @@
             font-family: "Microsoft YaHei", sans-serif;
             transition: background 1s ease-in-out;
             touch-action: none;
+        }
+        html,
+        body,
+        button,
+        .mobile-button,
+        .settings-preview-button {
             user-select: none;
             -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            -webkit-touch-callout: none;
             -webkit-tap-highlight-color: transparent;
         }
         /* 鸣人主题 - 温暖明亮的白天 */
@@ -522,6 +531,7 @@
         .home-panel .leaderboard-actions {
             position: relative;
             z-index: 3;
+            text-align: center;
         }
         #homeOverlay {
             box-sizing: border-box;
@@ -1209,15 +1219,20 @@
             }
             .home-title-main {
                 font-size: 28px;
-                max-width: 70%;
+                max-width: min(100%, 320px);
                 margin: 0 auto;
+                text-align: center;
             }
             .home-title-sub {
                 font-size: 17px;
+                text-align: center;
             }
             .home-question {
-                max-width: 68%;
+                max-width: min(100%, 330px);
+                margin-left: auto;
+                margin-right: auto;
                 font-size: 15px;
+                text-align: center;
             }
             .home-credits {
                 position: absolute;
@@ -1323,14 +1338,14 @@
                 padding-right: 16px;
             }
             .home-title-main {
-                max-width: 74%;
+                max-width: min(100%, 280px);
                 font-size: 24px;
             }
             .home-title-sub {
                 font-size: 15px;
             }
             .home-question {
-                max-width: 72%;
+                max-width: min(100%, 290px);
                 font-size: 14px;
             }
             .home-credits {
@@ -1456,6 +1471,9 @@
             <p>难度会决定初始速度、生成频率、后期成长和危险道具数量。</p>
             <p style="color: #ffd700; font-weight: 600; margin-bottom: 18px;">⚠️ 只有忍者难度的成绩才会进入排行榜，单人/竞争模式均适用！</p>
             <div id="difficultyChoices" class="difficulty-grid"></div>
+            <div class="leaderboard-actions" style="margin-top: 18px;">
+                <button id="backToHomeFromDifficultyButton" class="leaderboard-button secondary" type="button">返回</button>
+            </div>
         </div>
     </div>
 
@@ -1771,6 +1789,7 @@ const mobileLeft = document.getElementById('mobileLeft');
 const mobileRight = document.getElementById('mobileRight');
 const mobileJump = document.getElementById('mobileJump');
 const mobileControls = document.getElementById('mobileControls');
+const backToHomeFromDifficultyButton = document.getElementById('backToHomeFromDifficultyButton');
 const leaderboardOverlay = document.getElementById('leaderboardOverlay');
 const homeLeaderboardButton = document.getElementById('homeLeaderboardButton');
 const settingsOverlay = document.getElementById('settingsOverlay');
@@ -2062,6 +2081,11 @@ startButton.addEventListener('click', () => {
     difficultyOverlay.classList.remove('hidden');
 });
 
+backToHomeFromDifficultyButton.addEventListener('click', () => {
+    difficultyOverlay.classList.add('hidden');
+    homeOverlay.classList.remove('hidden');
+});
+
 function getDifficultyLevel() {
     return Math.floor(score / currentDifficulty.difficultyStepScore);
 }
@@ -2229,6 +2253,13 @@ function bindHoldButton(button, onPress, onRelease) {
     button.addEventListener('pointercancel', release);
     button.addEventListener('pointerleave', release);
 }
+
+[mobileLeft, mobileRight, mobileJump].forEach(button => {
+    button.addEventListener('contextmenu', e => e.preventDefault());
+    button.addEventListener('selectstart', e => e.preventDefault());
+    button.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+    button.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+});
 
 bindHoldButton(mobileLeft, () => keys.left = true, () => keys.left = false);
 bindHoldButton(mobileRight, () => keys.right = true, () => keys.right = false);
@@ -2832,26 +2863,39 @@ async function submitScore() {
         .from(SUPABASE_SCORE_TABLE)
         .select('player_name, score')
         .eq('player_name', scorePayload.player_name)
-        .eq('difficulty_key', 'ninja')
         .limit(1);
 
     if (!findError && existingRows && existingRows.length > 0) {
+        const bestScore = Math.max(Number(existingRows[0].score) || 0, scorePayload.score);
         const updateResult = await client
             .from(SUPABASE_SCORE_TABLE)
             .update({
-                score: Math.max(Number(existingRows[0].score) || 0, scorePayload.score),
+                score: bestScore,
                 difficulty_key: scorePayload.difficulty_key,
                 difficulty_name: scorePayload.difficulty_name,
                 created_at: scorePayload.created_at
             })
             .eq('player_name', scorePayload.player_name)
-            .eq('difficulty_key', 'ninja');
+            .select('player_name');
         error = updateResult.error;
     } else {
         const insertResult = await client
             .from(SUPABASE_SCORE_TABLE)
             .insert(scorePayload);
         error = insertResult.error;
+        if (isDuplicateNameError(error)) {
+            const fallbackUpdate = await client
+                .from(SUPABASE_SCORE_TABLE)
+                .update({
+                    score: scorePayload.score,
+                    difficulty_key: scorePayload.difficulty_key,
+                    difficulty_name: scorePayload.difficulty_name,
+                    created_at: scorePayload.created_at
+                })
+                .eq('player_name', scorePayload.player_name)
+                .select('player_name');
+            error = fallbackUpdate.error;
+        }
     }
 
     submitScoreButton.disabled = false;
