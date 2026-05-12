@@ -58,6 +58,7 @@
             width: 100vw;
             height: 100vh;
             transition: background 1s ease-in-out;
+            isolation: isolate;
         }
         /* 鸣人场景 - 阳光明媚的木叶村 */
         body.theme-naruto #game {
@@ -109,6 +110,7 @@
             left: 0;
             width: 100%;
             height: 120px;
+            z-index: 2;
             transition: filter 1s ease-in-out;
         }
         /* 草地图片层 */
@@ -419,6 +421,7 @@
             box-shadow: 0 0 30px rgba(255,107,53,0.5);
             display: none;
             text-align: center;
+            z-index: 900;
         }
         #gameOver span {
             display: block;
@@ -463,9 +466,9 @@
 
         /* --------- 主页 & 难度选择 --------- */
         .overlay {
-            position: absolute;
+            position: fixed;
             inset: 0;
-            z-index: 1000;
+            z-index: 5000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -493,6 +496,7 @@
             z-index: 2;
         }
         #leaderboardOverlay {
+            z-index: 6000;
             background: radial-gradient(circle at center, rgba(255, 214, 102, 0.12), rgba(0, 0, 0, 0.94));
         }
         .home-panel {
@@ -1115,16 +1119,33 @@
             #ground {
                 bottom: 0;
                 height: calc(var(--mobile-ground-bottom, 186px) + 104px);
+                z-index: 3;
+                overflow: hidden;
+                background: #8b6914;
             }
             #grassLayer {
                 top: 0;
                 height: 60px;
             }
             #dirtLayer {
-                top: 52px;
+                top: 58px;
                 bottom: 0;
                 height: auto;
                 min-height: 52px;
+            }
+            body.theme-naruto #ground {
+                background: linear-gradient(to top,
+                    #5d4023 0%,
+                    #6f4b22 45%,
+                    #8b6914 78%,
+                    #a67c00 100%);
+            }
+            body.theme-sasuke #ground {
+                background: linear-gradient(to top,
+                    #2a1a0a 0%,
+                    #32220f 45%,
+                    #3d2914 78%,
+                    #4a3520 100%);
             }
             #player,
             #partner {
